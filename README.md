@@ -1,10 +1,10 @@
 # BrewLite - Coffee Ordering Platform
 
-B�i t?p l?n m�n C�ng ngh? Ph?n m?m - Assignment 2 (Requirements to Deployment)
-H? th?ng d?t c� ph� kh�ng ti?n m?t theo ki?n tr�c Mobile-first / PWA, NestJS API v� PostgreSQL.
+Bài tập lớn môn Công nghệ Phần mềm - Assignment 2 (Requirements to Deployment)
+Hệ thống đặt cà phê không tiền mặt theo kiến trúc Mobile-first / PWA, NestJS API và PostgreSQL.
 
-## C?u tr�c d? �n
+## Cấu trúc dự án
 - apps/web: Frontend Next.js (Mobile-first / PWA)
 - apps/api: Backend NestJS API
-- docs/: T�i li?u ph�n t�ch y�u c?u, so d? UML v� ki?n tr�c h? th?ng
-- tests/: Integration test v� E2E test
+- docs/: Tài liệu phân tích yêu cầu, sơ đồ UML và kiến trúc hệ thống
+- tests/: Integration test và E2E test
