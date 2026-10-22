@@ -1,0 +1,22 @@
+@startuml
+
+actor "Khách hàng" as Customer
+actor "Dịch vụ thanh toán" as PaymentService
+
+rectangle "Hệ thống BrewLite" {
+  usecase "Đặt và thanh toán\nđơn hàng" as UC_Main
+  usecase "Kiểm tra xác thực,\ngiỏ hàng và tồn kho" as UC_Validate
+  usecase "Tạo đơn hàng" as UC_CreateOrder
+  usecase "Xử lý thanh toán\nmô phỏng" as UC_Payment
+  usecase "Ghi nhận và hiển thị\nkết quả thanh toán" as UC_Result
+}
+
+Customer -- UC_Main
+PaymentService -- UC_Payment
+
+UC_Main ..> UC_Validate : <<include>>
+UC_Main ..> UC_CreateOrder : <<include>>
+UC_Main ..> UC_Payment : <<include>>
+UC_Payment ..> UC_Result : <<include>>
+
+@enduml
