@@ -1,0 +1,41 @@
+
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Khách hàng" as Customer
+actor "Nhân viên" as Staff
+actor "Dịch vụ thanh toán" as PaymentService
+
+rectangle "Hệ thống BrewLite" {
+
+    usecase "Xem menu" as UC01
+    usecase "Xem chi tiết sản phẩm" as UC02
+    usecase "Chọn size và topping" as UC03
+    usecase "Quản lý giỏ hàng" as UC04
+
+    usecase "Đăng ký / Đăng nhập" as UC05
+    usecase "Đặt đơn hàng" as UC06
+    usecase "Thanh toán mô phỏng" as UC07
+    usecase "Xem lịch sử đơn hàng" as UC08
+    usecase "Theo dõi trạng thái đơn hàng" as UC09
+
+    usecase "Cập nhật trạng thái đơn hàng" as UC10
+    usecase "Tìm kiếm / Lọc lịch sử đơn hàng" as UC11
+}
+
+Customer -- UC01
+Customer -- UC02
+Customer -- UC03
+Customer -- UC04
+Customer -- UC05
+Customer -- UC06
+Customer -- UC07
+Customer -- UC08
+Customer -- UC09
+Customer -- UC11
+
+Staff -- UC10
+PaymentService -- UC07
+
+@enduml
