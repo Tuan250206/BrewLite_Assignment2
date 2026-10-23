@@ -1,155 +1,140 @@
-# BrewLite — Use Case: Đặt và thanh toán đơn hàng
+# Task 1.3 – Đặc tả use case: Đặt và thanh toán đơn hàng
 
-**Phiên bản:** 1.0  
 **Mã use case:** UC-01  
-**Task:** 1.3 — Đặc tả use-case trọng tâm (văn bản)  
-**Mức:** Mục tiêu người dùng
+**Tên:** Đặt và thanh toán đơn hàng  
+**Phạm vi:** Hệ thống BrewLite  
+**Mục tiêu:** Khách hàng đặt các sản phẩm trong giỏ và nhận kết quả thanh toán mô phỏng.
 
-## 1. Tóm tắt
+## 1. Tác nhân
 
-Khách hàng chọn đồ uống và tùy chọn, gửi đơn đã xác thực; hệ thống xác nhận tồn kho, tính giá từ dữ liệu backend, tạo đơn `PENDING` và cho khách thanh toán qua mock gateway. Hệ thống ghi nhận kết quả, cập nhật trạng thái và hiển thị xác nhận. MVP không thu tiền thật.
+| Tác nhân             | Vai trò                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| Khách hàng           | Chọn sản phẩm, gửi yêu cầu đặt hàng, cung cấp mã khuyến mãi nếu có và nhận kết quả. |
+| Mock payment gateway | Nhận yêu cầu thanh toán mô phỏng và trả kết quả thành công hoặc thất bại.           |
 
-## 2. Actor và hệ thống liên quan
+Frontend, backend và cơ sở dữ liệu là các thành phần nội bộ của BrewLite, không phải tác nhân của use case này. Nhân viên quầy không tham gia use case trọng tâm này.
 
-| Actor / hệ thống                             | Vai trò                                                                                                            |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Khách hàng (actor chính)                     | Chọn món, gửi đơn, chọn phương thức thanh toán và xác nhận thanh toán giả lập.                                     |
-| BrewLite frontend                            | Hiển thị menu, chi tiết, giỏ hàng, đăng nhập và kết quả đơn/thanh toán.                                            |
-| BrewLite backend                             | Xác thực, kiểm tra dữ liệu, tính giá, giữ/trừ tồn kho, tạo đơn và điều phối thanh toán.                            |
-| PostgreSQL                                   | Lưu user, product, order, order item và payment.                                                                   |
-| Mock payment gateway (actor phụ)             | Mô phỏng kết quả thanh toán và gửi callback/webhook về BrewLite.                                                   |
-| Nhân viên quầy (actor hỗ trợ ngoài hệ thống) | Nhận/chuẩn bị đơn theo quy trình cửa hàng; không trực tiếp thao tác trong use case MVP nếu chưa có giao diện quầy. |
+## 2. Sự kiện kích hoạt
 
-## 3. Trigger
+Khách hàng đã đăng nhập và chọn **Đặt hàng/Thanh toán** từ giỏ hàng.
 
-Khách hàng chọn **Tiến hành thanh toán** từ giỏ hàng có ít nhất một sản phẩm.
+## 3. Tiền điều kiện
 
-## 4. Tiền điều kiện
+1. Hệ thống BrewLite và các dịch vụ cần thiết đang hoạt động.
+2. Khách hàng đã đăng nhập.
+3. Giỏ hàng có ít nhất một sản phẩm.
 
-1. Menu và dịch vụ backend/database đang sẵn sàng.
-2. Giỏ hàng có ít nhất một sản phẩm; mỗi số lượng là số nguyên dương.
-3. Sản phẩm, size và topping được chọn thuộc dữ liệu/quy tắc hợp lệ.
-4. Khách đã đăng nhập hợp lệ trước khi gửi yêu cầu tạo đơn. Nếu chưa đăng nhập, luồng thay thế yêu cầu đăng nhập rồi quay lại checkout.
-5. Khách chưa xác nhận giao dịch tiền thật; phương thức được chọn chỉ chạy với mock gateway.
-
-## 5. Hậu điều kiện
+## 4. Hậu điều kiện
 
 ### Thành công
 
-- Một order thuộc về khách được lưu với tổng tiền do backend tính.
-- Tồn kho được kiểm tra và giữ/trừ trong transaction; nếu có tranh chấp thì không thể bán vượt số lượng.
-- Payment được lưu với `Idempotency-Key`; khi gateway xác nhận thành công, payment/order được cập nhật `PAID`.
-- Khách thấy mã đơn, tổng tiền và trạng thái cuối cùng; đơn xuất hiện trong lịch sử tài khoản.
+- Đơn hàng được tạo với trạng thái **PAID**.
+- Tồn kho phản ánh số lượng sản phẩm đã đặt.
+- Điểm thưởng được cộng cho đơn hàng thành công đúng một lần.
+- Khách hàng nhận được thông tin xác nhận đơn hàng.
 
-### Thất bại / ngoại lệ
+### Thất bại hoặc bị hủy
 
-- Nếu kiểm tra hoặc giữ kho thất bại, không tạo order dở dang và tồn kho không bị trừ một phần.
-- Nếu thanh toán thất bại, payment/order phản ánh `PAYMENT_FAILED`; không được hiển thị là đã thanh toán.
-- Lặp lại yêu cầu cùng khóa idempotency và cùng dữ liệu không tạo thêm payment; cùng khóa nhưng dữ liệu khác bị từ chối.
-- Quy tắc hoàn tồn kho khi payment thất bại/hủy hiện cần xác nhận theo `A-07` trong tài liệu bối cảnh; phải được chốt trước khi nghiệm thu hành vi này.
+- Đơn hàng không ở trạng thái **PAID**.
+- Số lượng hàng được giữ cho đơn hàng được hoàn lại đúng một lần nếu đơn bị hủy hoặc thanh toán thất bại.
+- Điểm thưởng không được cộng.
 
-## 6. Luồng chính
+## 5. Luồng chính
 
-| Bước | Tác nhân                      | Hành động / phản hồi                                                                                                                                                                                      |
-| ---: | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|    1 | Khách hàng                    | Mở menu, xem sản phẩm, giá và thông tin còn hàng.                                                                                                                                                         |
-|    2 | Khách hàng                    | Chọn một hoặc nhiều đồ uống; chọn size, topping hợp lệ và số lượng; thêm vào giỏ.                                                                                                                         |
-|    3 | BrewLite frontend             | Hiển thị các dòng hàng và tổng tạm tính; cho khách chỉnh sửa giỏ trước khi gửi.                                                                                                                           |
-|    4 | Khách hàng                    | Chọn checkout. Nếu đã xác thực, chọn tiếp tục.                                                                                                                                                            |
-|    5 | BrewLite backend              | Nhận `POST /orders`, xác thực JWT và validate request; tải product/giá từ database, bỏ qua mọi giá do client tự gửi.                                                                                      |
-|    6 | BrewLite backend + PostgreSQL | Tính giá theo size/topping/khuyến mãi hợp lệ; kiểm tra tồn kho và giữ/trừ kho trong cùng transaction với việc tạo order `PENDING` và các order item. Nếu một dòng thất bại, rollback toàn bộ transaction. |
-|    7 | BrewLite frontend             | Hiển thị đơn đã tạo và yêu cầu khách chọn `EWALLET` hoặc `CARD`.                                                                                                                                          |
-|    8 | Khách hàng                    | Xác nhận khởi tạo thanh toán. Frontend gửi `POST /payments` với JWT và `Idempotency-Key`.                                                                                                                 |
-|    9 | BrewLite backend              | Kiểm tra đơn thuộc khách và trạng thái hợp lệ; tạo hoặc trả lại payment theo khóa idempotency; khởi tạo phiên mock gateway.                                                                               |
-|   10 | Khách hàng                    | Mở trang mock gateway và bấm xác nhận thanh toán. Không nhập thông tin thẻ/ví thật.                                                                                                                       |
-|   11 | Mock payment gateway          | Gửi callback/webhook mô phỏng có chữ ký và thông tin giao dịch về backend.                                                                                                                                |
-|   12 | BrewLite backend              | Xác minh chữ ký, giao dịch, số tiền và tính hợp lệ của callback; cập nhật payment và trạng thái order trong transaction. Callback lặp không tạo tác động kép.                                             |
-|   13 | BrewLite frontend             | Hiển thị kết quả `PAID` hoặc `PAYMENT_FAILED`; khi thành công, hiển thị mã đơn và cho phép xem lịch sử tại `GET /orders/me`.                                                                              |
+| Bước | Tác nhân             | Hành động / phản hồi                                                                              |
+| ---- | -------------------- | ------------------------------------------------------------------------------------------------- |
+| 1    | Khách hàng           | Chọn đặt hàng từ giỏ hàng.                                                                        |
+| 2    | BrewLite             | Hiển thị thông tin đơn hàng, gồm sản phẩm, kích cỡ, topping, số lượng và tổng tiền tạm tính.      |
+| 3    | Khách hàng           | Kiểm tra đơn hàng và xác nhận tiếp tục.                                                           |
+| 4    | BrewLite             | Kiểm tra thông tin đơn hàng, giá và số lượng tồn kho.                                             |
+| 5    | BrewLite             | Tạo đơn hàng ở trạng thái **PENDING** và giữ số lượng hàng cần thiết cho đơn đó.                  |
+| 6    | BrewLite             | Gửi yêu cầu thanh toán mô phỏng đến Mock payment gateway.                                         |
+| 7    | Mock payment gateway | Trả kết quả thanh toán thành công.                                                                |
+| 8    | BrewLite             | Cập nhật đơn hàng thành **PAID**, xác nhận số lượng hàng đã đặt và cộng điểm thưởng đúng một lần. |
+| 9    | BrewLite             | Hiển thị xác nhận đặt hàng cho khách hàng.                                                        |
 
-## 7. Luồng thay thế
+## 6. Luồng thay thế
 
-### A1 — Khách chưa đăng nhập
+### A1 – Khách hàng áp dụng mã khuyến mãi
 
-1. Tại bước 4, backend/frontend yêu cầu đăng nhập hoặc đăng ký.
-2. Sau xác thực thành công, khách quay lại checkout với giỏ hàng đã giữ ở frontend.
-3. Tiếp tục tại bước 5. Backend vẫn kiểm tra lại product, giá và tồn kho.
+1. Ở bước 3, khách hàng nhập mã khuyến mãi.
+2. BrewLite kiểm tra mã và điều kiện áp dụng.
+3. Nếu mã hợp lệ, BrewLite cập nhật số tiền phải thanh toán.
+4. Luồng tiếp tục ở bước 4.
 
-### A2 — Có mã khuyến mãi
+Nếu mã không hợp lệ hoặc không đủ điều kiện, BrewLite thông báo lý do và cho phép khách hàng sửa hoặc bỏ mã để tiếp tục.
 
-1. Khách nhập mã khuyến mãi trước khi gửi đơn.
-2. Backend xác thực mã và tự tính mức giảm theo contract hiện hành (ví dụ `WELCOME10`, giảm 10%, tối đa 30.000 đồng).
-3. Mã không hợp lệ/hết hạn bị từ chối; không âm tổng tiền.
-4. Tiếp tục với tổng tiền do backend trả về.
+### A2 – Khách hàng không áp dụng mã khuyến mãi
 
-### A3 — Khách dùng lại yêu cầu thanh toán
+Khách hàng tiếp tục mà không nhập mã. BrewLite giữ nguyên tổng tiền và luồng tiếp tục ở bước 4.
 
-1. Khách gửi lại cùng `Idempotency-Key` và cùng order/method.
-2. Backend trả kết quả payment đã có, không tạo payment/giao dịch thứ hai.
-3. Nếu cùng key nhưng dữ liệu khác, backend từ chối request và giữ nguyên payment hiện có.
+## 7. Luồng ngoại lệ
 
-### A4 — Khách thử lại sau thanh toán thất bại
+### E1 – Phiên đăng nhập hết hạn
 
-1. Khách thấy trạng thái `PAYMENT_FAILED` và chọn thử lại.
-2. Backend chỉ cho retry trên đơn thuộc khách và ở trạng thái được phép; tạo lần thanh toán mới với `Idempotency-Key` mới.
-3. Nếu thành công, order chuyển về luồng `PAID`; nếu thất bại lần nữa, trạng thái tiếp tục phản ánh thất bại.
+Nếu thông tin xác thực hết hạn khi khách hàng gửi yêu cầu, BrewLite từ chối yêu cầu và yêu cầu khách hàng đăng nhập lại. Không tạo đơn hàng.
 
-### A5 — Khách hủy đơn thanh toán thất bại
+### E2 – Sản phẩm hoặc lựa chọn không còn hợp lệ
 
-1. Khách chọn hủy trên đơn `PAYMENT_FAILED`.
-2. Backend kiểm tra quyền sở hữu và transition; nếu hợp lệ, chuyển order sang `CANCELLED`.
-3. Cách giải phóng tồn kho phải theo quy tắc được nhóm chốt (xem `A-07`); không được tự giải phóng nhiều lần.
+Nếu sản phẩm không còn được bán, hoặc kích cỡ/topping đã chọn không hợp lệ, BrewLite thông báo nội dung cần sửa và không tạo đơn hàng.
 
-## 8. Luồng ngoại lệ
+### E3 – Tồn kho không đủ
 
-| Mã  | Tình huống                                                                  | Phản hồi mong đợi                                                                                                       |
-| --- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| E1  | JWT thiếu, hết hạn hoặc không hợp lệ                                        | Trả `401`; không tạo order/payment và không thay đổi tồn kho.                                                           |
-| E2  | Giỏ rỗng, số lượng không nguyên/dương, size/topping không hợp lệ            | Trả lỗi validation (`400`); không ghi order và không trừ kho.                                                           |
-| E3  | Product không tồn tại                                                       | Trả `404`; transaction rollback, không tạo order.                                                                       |
-| E4  | Một hoặc nhiều product không đủ tồn, gồm hai yêu cầu mua đồng thời món cuối | Từ chối yêu cầu không đủ hàng; chỉ yêu cầu lấy được tồn hợp lệ mới thành công; stock không âm; không tạo order dở dang. |
-| E5  | Database lỗi khi tạo order hoặc reserve stock                               | Rollback toàn bộ thao tác; báo lỗi có thể retry; không trả xác nhận thành công.                                         |
-| E6  | Mã promo không hợp lệ/hết hạn                                               | Từ chối mã hoặc yêu cầu khách sửa mã theo contract; không áp dụng giảm giá sai.                                         |
-| E7  | Gateway báo thanh toán thất bại                                             | Ghi trạng thái thất bại; UI không báo đã trả tiền; khách có thể retry hoặc hủy theo trạng thái cho phép.                |
-| E8  | Webhook thiếu/sai chữ ký, sai số tiền/mã giao dịch hoặc quá hạn             | Từ chối callback; không chuyển order sang `PAID`; ghi nhận lỗi kỹ thuật phù hợp để điều tra.                            |
-| E9  | Webhook hoặc request thanh toán được gửi lặp                                | Xử lý idempotent; không tạo payment hoặc cập nhật trạng thái hai lần.                                                   |
-| E10 | Khách truy cập order không thuộc mình hoặc thao tác sai trạng thái          | Trả `403`/`404` hoặc `409` tương ứng; không sửa dữ liệu.                                                                |
+Nếu một hay nhiều sản phẩm không đủ số lượng, BrewLite thông báo sản phẩm bị thiếu hàng và không tạo đơn hàng **PAID**.
+
+### E4 – Thanh toán mô phỏng thất bại
+
+Nếu Mock payment gateway trả về thất bại, BrewLite đánh dấu đơn hàng là **FAILED**, hoàn lại số lượng hàng đã giữ đúng một lần và thông báo kết quả cho khách hàng.
+
+### E5 – Không nhận được kết quả thanh toán
+
+Nếu BrewLite chưa nhận được kết quả từ Mock payment gateway, đơn hàng giữ trạng thái **PENDING** trong 15 phút sau 15 phút BrewLite chuyển đơn sang **FAILED** và hoàn lại số lượng giữ đúng 1 lần. Trong thời gian chờ khách hàng không nhận được điểm thưởng.
+
+### E6 – Khách hàng rời khỏi trang khi đơn còn PENDING
+
+Nếu khách hàng đóng trang hoặc rời khỏi quy trình sau khi đơn đã được tạo nhưng trước khi có kết quả thanh toán, đơn hàng vẫn ở trạng thái **PENDING** 15 phút. Khi nhận được kết quả thanh toán sau đó, BrewLite cập nhật đơn theo kết quả đó. Nếu đơn bị hủy hoặc hết hạn BrewLite đơn hàng chuyển trạng thái thành **FAILED** hoàn lại số lượng đã giữ đúng một lần.
+
+### E7 – Khách hàng hủy đơn PENDING
+
+Nếu khách hàng hủy đơn khi đơn vẫn ở trạng thái **PENDING**, BrewLite chuyển đơn sang **CANCELLED** và hoàn lại số lượng đã giữ đúng một lần. Nếu thanh toán đã thành công trước khi yêu cầu hủy được xử lý, việc hủy không được thực hiện theo luồng này.
+
+## 8. Quy tắc nghiệp vụ và giới hạn phạm vi
+
+- Thanh toán trong use case này là **mô phỏng**, không xử lý giao dịch tiền thật.
+- Mã khuyến mãi chỉ được áp dụng nếu hợp lệ và đáp ứng điều kiện chương trình.
+- Điểm thưởng chỉ được cộng cho đơn **PAID**, mỗi đơn đúng một lần.
+- Đơn **PENDING**, **FAILED** hoặc **CANCELLED** không được cộng điểm.
+- Use case không mô tả nghiệp vụ nhân viên quầy xử lý đơn.
 
 ## 9. Liên kết yêu cầu
 
-| Mã yêu cầu | Nội dung                                                                                                    | Bước / luồng liên quan        |
-| ---------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| FR-01      | Khách xem menu và chi tiết sản phẩm, giá, tồn kho.                                                          | Main 1                        |
-| FR-02      | Khách chọn size/topping hợp lệ và số lượng nguyên dương.                                                    | Main 2–3; A1                  |
-| FR-03      | Chỉ user xác thực mới tạo đơn, thanh toán và xem lịch sử của mình.                                          | Main 4–5, 8–9, 13; A1; E1/E10 |
-| FR-04      | Backend lấy giá từ DB, tính tổng và không tin giá/tổng client gửi.                                          | Main 5–6; A2                  |
-| FR-05      | Tạo order `PENDING` và order items cùng transaction giữ/trừ kho.                                            | Main 6; E3–E5                 |
-| FR-06      | Không bán vượt tồn trong các request đồng thời; transaction rollback toàn bộ nếu reserve một item thất bại. | Main 6; E4–E5                 |
-| FR-07      | Hỗ trợ method `EWALLET` và `CARD` qua mock gateway, không thu tiền thật.                                    | Main 7–11; E7–E8              |
-| FR-08      | Xử lý idempotency cho payment và callback.                                                                  | Main 8–12; A3; E9             |
-| FR-09      | Cập nhật trạng thái hợp lệ `PENDING`, `PAID`, `PAYMENT_FAILED`, retry/hủy theo state machine.               | Main 12–13; A4–A5; E7/E10     |
-| FR-10      | Khách nhận kết quả và xem lịch sử đơn.                                                                      | Main 13                       |
-| FR-11      | Áp dụng mã promo theo contract (nếu có mã), từ chối mã invalid/expired và không âm tổng.                    | A2; E6                        |
-| NFR-01     | Tính toàn vẹn: tạo order, giữ kho và order items nguyên tử; không để stock âm.                              | Main 6; E4–E5                 |
-| NFR-02     | Tính truy vết: response/error nêu trạng thái rõ; test có thể kiểm tra các trường hợp thành công và lỗi.     | Tất cả luồng                  |
-| NFR-03     | Bảo vệ dữ liệu: không lưu/ghi log thông tin thẻ hoặc ví thật trong MVP.                                     | Main 10; A1; E8               |
+> Các mã dưới đây là mã tạm để lập liên kết. Cần thay hoặc đối chiếu với mã trong SRS chính thức của nhóm.
 
-## 10. Tiêu chí chấp nhận có thể kiểm thử
+| Mã tạm          | Yêu cầu liên quan                                                             |
+| --------------- | ----------------------------------------------------------------------------- |
+| FR-ORDER-01     | Khách hàng đã đăng nhập có thể gửi đơn hàng từ giỏ hàng không rỗng.           |
+| FR-ORDER-02     | Hệ thống kiểm tra sản phẩm, lựa chọn và tồn kho trước khi chấp nhận đơn.      |
+| FR-ORDER-03     | Hệ thống tạo đơn và theo dõi các trạng thái PENDING, PAID, FAILED, CANCELLED. |
+| FR-PAY-01       | Hệ thống gửi yêu cầu và nhận kết quả từ Mock payment gateway.                 |
+| FR-PROMO-01     | Khách hàng có thể nhập mã khuyến mãi; hệ thống kiểm tra điều kiện áp dụng.    |
+| FR-LOYALTY-01   | Hệ thống cộng điểm cho đơn đã thanh toán thành công, đúng một lần.            |
+| FR-INVENTORY-01 | Hệ thống giữ và hoàn lại số lượng hàng theo kết quả hoặc việc hủy đơn.        |
 
-1. Với user đã đăng nhập và một giỏ hàng hợp lệ còn đủ kho, `POST /orders` tạo đúng một order `PENDING`; tổng tiền bằng phép tính từ product trong database cộng/trừ tùy chọn hợp lệ.
-2. Nếu client gửi giá/tổng tiền giả, backend bỏ qua và dùng giá/quy tắc phía server.
-3. Nếu số lượng không hợp lệ, product không tồn tại hoặc stock không đủ, request bị từ chối; không tạo order dở dang và stock không bị trừ một phần.
-4. Với product có stock bằng 1, gửi hai yêu cầu đồng thời mỗi yêu cầu mua 1: đúng một yêu cầu thành công, một yêu cầu bị từ chối; stock cuối bằng 0 và chỉ có một order thành công.
-5. Order không thể được xem hoặc thao tác bởi user khác.
-6. Payment mock với `EWALLET` hoặc `CARD` nhận kết quả success/failure và cập nhật trạng thái đúng; ứng dụng không yêu cầu dữ liệu thẻ/ví thật.
-7. Gửi lại cùng `Idempotency-Key` và cùng dữ liệu không tạo payment thứ hai; dùng lại key với dữ liệu khác bị từ chối.
-8. Webhook sai chữ ký hoặc sai amount không thể đưa order sang `PAID`; webhook đúng, lặp lại an toàn.
-9. Thanh toán thất bại hiển thị `PAYMENT_FAILED`; retry/hủy chỉ được phép theo state machine và quyền sở hữu.
-10. Nghiệm thu hành vi giải phóng tồn khi payment fail/cancel sau khi nhóm chốt quy tắc được ghi ở `A-07`.
+## 10. Tiêu chí chấp nhận
 
-## 11. Điểm cần nhóm xác nhận trước khi khóa baseline
+1. Khách chưa đăng nhập không thể gửi yêu cầu đặt hàng; hệ thống yêu cầu đăng nhập.
+2. Khách đã đăng nhập nhưng giỏ hàng rỗng không thể tạo đơn.
+3. Nếu số lượng tồn không đủ, hệ thống báo sản phẩm thiếu hàng và không tạo đơn **PAID**.
+4. Với sản phẩm hợp lệ và đủ hàng, hệ thống tạo đơn **PENDING** trước khi nhận kết quả thanh toán.
+5. Khi Mock payment gateway trả thành công, đơn chuyển sang **PAID** và khách nhận được xác nhận.
+6. Khi Mock payment gateway trả thất bại, đơn chuyển sang **FAILED**, không cộng điểm và số lượng đã giữ được hoàn lại một lần.
+7. Khách có thể hủy đơn **PENDING**; đơn chuyển sang **CANCELLED** và số lượng đã giữ được hoàn lại một lần.
+8. Nếu khách rời trang trong lúc đơn **PENDING**, trạng thái đơn không tự đổi thành **PAID** hoặc **CANCELLED**; hệ thống xử lý khi có kết quả thanh toán hoặc theo quy tắc hết hạn đã thống nhất.
+9. Mã khuyến mãi hợp lệ làm tổng tiền thay đổi theo điều kiện của chương trình; mã không hợp lệ không được áp dụng và hệ thống thông báo lý do.
+10. Một đơn **PAID** chỉ được cộng điểm thưởng một lần, kể cả khi kết quả thanh toán được gửi lại.
 
-- Khi đơn được tạo, tồn kho được giữ/trừ ngay. Nếu payment thất bại rồi khách retry, giữ nguyên phần tồn đã giữ hay trả lại rồi reserve lại?
-- Khi khách hủy đơn thất bại, có hoàn tồn kho không và cơ chế bảo đảm chỉ hoàn một lần là gì?
-- Luồng thanh toán có yêu cầu trigger khởi tạo từ frontend bằng POST `/payments` sau khi order đã tạo, hay mock gateway nên được khởi tạo ngay khi checkout? Contract hiện tại mô tả hai bước riêng.
+## 11. Ngoài phạm vi
 
-Các quyết định này cần leader/nhóm xác nhận và cập nhật ở `docs/team-contract.md` trước khi dùng làm acceptance baseline cho implementation.
+- Thanh toán bằng cổng thanh toán thật hoặc xử lý hoàn tiền thật.
+- Nhân viên quầy tạo hoặc chỉnh sửa đơn trong use case này.
+- Các nghiệp vụ quản trị cửa hàng không liên quan trực tiếp đến việc khách đặt và thanh toán đơn.
