@@ -37,7 +37,7 @@ BrewLite tập trung chuẩn hóa luồng từ xem sản phẩm đến xác nh�
 | IS-01 | Hiển thị menu và chi tiết sản phẩm mẫu: tên, giá, ảnh, tồn kho.                                                                                         |
 | IS-02 | Chọn size S/M/L, topping theo danh sách được nhóm chốt, số lượng nguyên dương; cập nhật giỏ hàng.                                                       |
 | IS-03 | Đăng ký/đăng nhập để tạo đơn và truy cập lịch sử đơn của tài khoản.                                                                                     |
-| IS-04 | Backend xác thực dữ liệu đơn, đọc giá từ database, tính dòng tiền/tổng tiền và áp dụng quy tắc khuyến mãi nếu mã được hỗ trợ.                           |
+| IS-04 | Backend xác thực dữ liệu đơn, đọc giá từ database, tính dòng tiền/tổng tiền và áp dụng quy tắc khuyến mãi(nếu có) và xử lý tích điểm cơ bản.            |
 | IS-05 | Tạo đơn ở trạng thái `PENDING`; kiểm tra và giữ/trừ tồn kho trong transaction, kể cả khi có yêu cầu đồng thời.                                          |
 | IS-06 | Thanh toán bằng `EWALLET` hoặc `CARD` thông qua mock gateway; hỗ trợ thành công, thất bại, xác nhận callback và chống xử lý lặp theo `Idempotency-Key`. |
 | IS-07 | Hiển thị kết quả thanh toán, trạng thái đơn và lịch sử đơn cơ bản.                                                                                      |
@@ -45,16 +45,29 @@ BrewLite tập trung chuẩn hóa luồng từ xem sản phẩm đến xác nh�
 
 ## 5. Ngoài phạm vi MVP (out-of-scope)
 
-| Mã    | Nội dung không thực hiện trong MVP                                                                                                                                     |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| OS-01 | Thu tiền thật, kết nối ngân hàng/ví thật, lưu số thẻ hoặc dữ liệu thanh toán thật.                                                                                     |
-| OS-02 | Ứng dụng native iOS/Android, giao hàng, định vị hoặc theo dõi shipper.                                                                                                 |
-| OS-03 | Hệ thống quản trị cửa hàng đầy đủ: phân quyền nhân viên, báo cáo doanh thu nâng cao, quản lý nhiều chi nhánh, cấu hình menu qua giao diện quản trị.                    |
-| OS-04 | Đồng bộ tồn kho với hệ thống POS/ERP hoặc nhà cung cấp bên ngoài.                                                                                                      |
-| OS-05 | Hóa đơn điện tử, hoàn tiền thực, chương trình loyalty đổi điểm và quản lý khách hàng nâng cao. MVP chỉ ghi nhận quy tắc demo đã thống nhất nếu task được giao yêu cầu. |
-| OS-06 | Cam kết vận hành production, SLA, tải lớn hoặc kiểm thử bảo mật/chứng nhận thanh toán.                                                                                 |
+| Mã    | Nội dung không thực hiện trong MVP                                                                                                                  |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OS-01 | Thu tiền thật, kết nối ngân hàng/ví thật, lưu số thẻ hoặc dữ liệu thanh toán thật.                                                                  |
+| OS-02 | Ứng dụng native iOS/Android, giao hàng, định vị hoặc theo dõi shipper.                                                                              |
+| OS-03 | Hệ thống quản trị cửa hàng đầy đủ: phân quyền nhân viên, báo cáo doanh thu nâng cao, quản lý nhiều chi nhánh, cấu hình menu qua giao diện quản trị. |
+| OS-04 | Đồng bộ tồn kho với hệ thống POS/ERP hoặc nhà cung cấp bên ngoài.                                                                                   |
+| OS-05 | Hóa đơn điện tử, hoàn tiền thực, quản lý khách hàng nâng cao.                                                                                       |
+| OS-06 | Cam kết vận hành production, SLA, tải lớn hoặc kiểm thử bảo mật/chứng nhận thanh toán.                                                              |
 
-## 6. Giả định
+## 6. Phạm vi mở rộng (Future Scope)
+
+Dưới đây là các tính năng và định hướng phát triển dự kiến sẽ được nghiên cứu và triển khai trong các phiên bản tiếp theo sau khi hệ thống BrewLite hoàn thành giai đoạn MVP:
+
+| Mã        | Tên tính năng / Hướng mở rộng             | Mô tả chi tiết                                                                                                  |
+| --------- | ----------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **EX-01** | Tích hợp cổng thanh toán trực tuyến       | Tích hợp các cổng thanh toán thực tế như VNPay, MoMo, ZaloPay, ngân hàng (VietQR).                              |
+| **EX-02** | Ứng dụng di động (Mobile App)             | Phát triển ứng dụng Native / Cross-platform (Flutter/React Native) cho Khách hàng và Shipper.                   |
+| **EX-03** | Phân hạng thành viên                      | Xây dựng hệ thống phân hạng VIP (Đồng, Bạc, Vàng, Kim Cương) với các quyền lợi chiết khấu riêng theo hạng.      |
+| **EX-04** | Quản lý chuỗi đa chi nhánh (Multi-branch) | Cho phép quản lý tồn kho, doanh thu và nhân sự theo từng chi nhánh/cửa hàng riêng biệt.                         |
+| **EX-05** | Tích hợp hệ thống POS & ERP               | Đồng bộ dữ liệu kho hàng, đơn hàng tự động với các hệ thống POS tại cửa hàng và ERP doanh nghiệp.               |
+| **EX-06** | Phân tích dữ liệu & Gợi ý AI              | Ứng dụng AI/ML để phân tích thói quen mua hàng, gợi ý món ăn/đồ uống (Recommendation System) và dự báo tồn kho. |
+
+## 7. Giả định
 
 | Mã   | Giả định                                                                                                                                                                             |
 | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -66,19 +79,19 @@ BrewLite tập trung chuẩn hóa luồng từ xem sản phẩm đến xác nh�
 | A-06 | Danh mục size, topping, mã khuyến mãi và quy tắc tính giá theo `docs/team-contract.md` là contract hiện hành; thay đổi phải được nhóm thống nhất.                                    |
 | A-07 | Tồn kho được giữ/trừ cùng transaction khi tạo đơn. Cách giải phóng tồn khi đơn thanh toán thất bại hoặc bị hủy cần được nhóm xác nhận trước khi coi là quy tắc nghiệm thu cuối cùng. |
 
-## 7. Ràng buộc
+## 8. Ràng buộc
 
-| Mã   | Ràng buộc                                                                                                                                              |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| C-01 | Công nghệ hiện tại: Next.js/React/TypeScript, NestJS/TypeScript, PostgreSQL/Prisma và Docker Compose.                                                  |
-| C-02 | Backend chạy cổng 3001; frontend chạy cổng 3000 trong môi trường phát triển theo README.                                                               |
-| C-03 | API tuân theo các hợp đồng và giá trị đã chốt trong `docs/team-contract.md`; không tự ý đổi schema, enum hoặc response mà không báo nhóm.              |
-| C-04 | Request tạo đơn phải xác thực JWT; server phải tính lại giá và kiểm tra tồn kho.                                                                       |
-| C-05 | Không đưa secret, mật khẩu, token hoặc thông tin thanh toán thật vào Git, tài liệu công khai hay bằng chứng assignment.                                |
-| C-06 | Cần lưu lịch sử thay đổi có thể review: làm trên nhánh `docs/task-1-requirements`, commit có phạm vi rõ và mở PR để leader nghiệm thu trước khi merge. |
-| C-07 | Nghiệm thu tuân thủ thứ tự: chỉ chấp nhận task sau khi tạo phẩm bắt buộc của task trước đã có trong kho mã nguồn và có lịch sử thay đổi rõ ràng.       |
+| Mã   | Ràng buộc                                                                                                                                             |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C-01 | Công nghệ hiện tại: Next.js/React/TypeScript, NestJS/TypeScript, PostgreSQL/Prisma và Docker Compose.                                                 |
+| C-02 | Backend chạy cổng 3001; frontend chạy cổng 3000 trong môi trường phát triển theo README.                                                              |
+| C-03 | API tuân theo các hợp đồng và giá trị đã chốt trong `docs/team-contract.md`; không tự ý đổi schema, enum hoặc response mà không báo nhóm.             |
+| C-04 | Request tạo đơn phải xác thực JWT; server phải tính lại giá và kiểm tra tồn kho.                                                                      |
+| C-05 | Không đưa secret, mật khẩu, token hoặc thông tin thanh toán thật vào Git, tài liệu công khai hay bằng chứng assignment.                               |
+| C-06 | Cần lưu lịch sử thay đổi có thể review: mỗi task/thành viên làm trên nhánh riêng, commit có phạm vi rõ và mở PR để leader nghiệm thu trước khi merge. |
+| C-07 | Nghiệm thu tuân thủ thứ tự: chỉ chấp nhận task sau khi tạo phẩm bắt buộc của task trước đã có trong kho mã nguồn và có lịch sử thay đổi rõ ràng.      |
 
-## 8. Rủi ro ban đầu
+## 9. Rủi ro ban đầu
 
 | Rủi ro                                                                                  | Tác động                                                | Cách giảm thiểu                                                                 |
 | --------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -90,6 +103,4 @@ BrewLite tập trung chuẩn hóa luồng từ xem sản phẩm đến xác nh�
 
 ## 9. Tài liệu liên quan
 
-- `docs/team-contract.md` — API, schema và quy tắc MVP đã thống nhất.
-- `docs/parallel-work-plan.md` — phân công, mốc và quy tắc nghiệm thu.
 - `docs/requirements/use-case-order-and-payment.md` — đặc tả UC trọng tâm.
