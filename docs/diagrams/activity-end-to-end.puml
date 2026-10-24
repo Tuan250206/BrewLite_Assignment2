@@ -1,0 +1,168 @@
+@startuml
+title BrewLite - Activity Diagram đặt hàng và thanh toán
+
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam activity {
+  Padding 5
+  BackgroundColor #F8FAFC
+  BorderColor #334155
+  DiamondBackgroundColor #FEF3C7
+  DiamondBorderColor #B45309
+  StartColor #166534
+  EndColor #991B1B
+  BarColor #64748B
+}
+
+|Khách hàng|
+start
+:Chọn món, tùy chọn,\nsố lượng; mở Checkout;
+
+|Giao diện|
+:Kiểm tra giỏ hàng;
+if (Giỏ hàng hợp lệ?) then (Có)
+else (Không)
+  :Báo giỏ hàng rỗng;
+  stop
+endif
+
+if (Đã đăng nhập?) then (Có)
+else (Chưa)
+  :Yêu cầu đăng nhập;
+  |Khách hàng|
+  :Nhập thông tin;
+  |Giao diện|
+  :Gửi yêu cầu đăng nhập;
+  |Hệ thống|
+  :Xác thực tài khoản;
+  if (Đăng nhập hợp lệ?) then (Có)
+  else (Không)
+    |Giao diện|
+    :Báo đăng nhập thất bại;
+    stop
+  endif
+endif
+
+|Giao diện|
+:Gửi yêu cầu tạo Order;
+|Hệ thống|
+:Kiểm tra dữ liệu, sản phẩm,\ngiá và promo (nếu có);
+if (Dữ liệu hợp lệ?) then (Có)
+  :Transaction: giữ/trừ tồn,\ntạo Order PENDING và OrderItems;
+  if (Transaction thành công?) then (Có)
+  else (Không)
+    :Rollback toàn bộ transaction;
+    |Giao diện|
+    :Báo tạo Order thất bại;
+    stop
+  endif
+else (Không)
+  |Giao diện|
+  :Báo dữ liệu không hợp lệ,\nhết hàng hoặc promo lỗi;
+  stop
+endif
+
+|Giao diện|
+:Hiển thị Order PENDING;
+|Khách hàng|
+:Chọn EWALLET/CARD;\nxác nhận thanh toán;
+|Giao diện|
+:Gửi yêu cầu Payment;
+|Hệ thống|
+:Kiểm tra quyền, Order,\nmethod và Idempotency-Key;
+if (Yêu cầu hợp lệ?) then (Có)
+  :Tạo một Payment PENDING;
+else (Không)
+  |Giao diện|
+  :Báo lỗi; hiển thị trạng thái\nOrder backend trả về;
+  stop
+endif
+
+repeat
+  |Giao diện|
+  :Hiển thị QR; chờ kết quả;
+  |Khách hàng|
+  :Xác nhận thanh toán hoặc yêu cầu đóng QR;
+  |Giao diện|
+  if (Khách yêu cầu đóng QR?) then (Có)
+    :Đóng QR; hiển thị trạng thái\nbackend xác nhận;
+    note right
+      Đóng QR không đồng nghĩa
+      Order/Payment đã bị hủy.
+    end note
+    stop
+  else (Không)
+    |Hệ thống|
+    :Kiểm tra callback và idempotency;
+    switch (Kết quả callback)
+    case (Không hợp lệ)
+      :Từ chối callback;\nkhông chuyển sang PAID;
+    case (PAID)
+      :Cập nhật Payment và Order PAID;\nkhông trừ tồn lần nữa;
+      |Giao diện|
+      :Báo thanh toán thành công;
+      stop
+    case (PENDING)
+      :Giữ Payment PENDING;
+    case (PAYMENT_FAILED)
+      :Cập nhật Payment và Order\nPAYMENT_FAILED;
+      |Giao diện|
+      :Hiển thị PAYMENT_FAILED;
+      |Khách hàng|
+      if (Khách yêu cầu retry?) then (Có)
+        |Giao diện|
+        :Gửi retry trên Order cũ,\nIdempotency-Key mới;
+        |Hệ thống|
+        :Kiểm tra quyền và trạng thái;
+        if (Backend chấp nhận retry?) then (Có)
+          :Khởi tạo đúng một Payment mới\ncho Order cũ;
+          if (Payment mới được tạo?) then (Có)
+            :Payment mới ở trạng thái PENDING;
+          else (Không)
+            |Giao diện|
+            :Báo lỗi; hiển thị trạng thái\nOrder backend xác nhận;
+            stop
+          endif
+        else (Không)
+          |Giao diện|
+          :Báo retry bị từ chối;\nhiển thị trạng thái backend;
+          stop
+        endif
+      else (Không)
+        if (Khách yêu cầu hủy Order?) then (Có)
+          |Giao diện|
+          :Gửi yêu cầu hủy;
+          |Hệ thống|
+          :Kiểm tra quyền và transition;
+          if (Hủy hợp lệ?) then (Có)
+            :Chuyển Order CANCELLED;
+            note right
+              A-07 chưa chốt giải phóng tồn
+              khi thanh toán thất bại/hủy.
+            end note
+            |Giao diện|
+            :Báo Order đã hủy;
+          else (Không)
+            |Giao diện|
+            :Báo hủy bị từ chối;\nhiển thị trạng thái backend;
+          endif
+        else (Không)
+          |Hệ thống|
+          :Giữ Order PAYMENT_FAILED;
+          |Giao diện|
+          :Hiển thị trạng thái hiện tại;
+        endif
+        stop
+      endif
+    endswitch
+  endif
+repeat while (Payment vẫn PENDING?) is (Có) not (Không)
+stop
+
+legend bottom
+Task 1: SRS, Use Case đặt hàng/thanh toán, IS-05, A-07.
+Callback lặp idempotent. Không có timeout tự động.
+Không mô tả loyalty hoặc cơ chế hoàn tồn chưa được chốt.
+endlegend
+@enduml
