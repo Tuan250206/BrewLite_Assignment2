@@ -60,7 +60,8 @@ class LoyaltyTransactionStatus <<enumeration>> #E3F4F4 {
 }
 
 ' ===================== CLASSES =====================
-class User <<entity>> {
+class User {
+  - id: String
   - email: String
   - passwordHash: String
   - role: UserRole
@@ -72,7 +73,8 @@ class User <<entity>> {
   + getLoyaltyPoints(userId: String): { loyaltyPoints: Int }
 }
 
-class Order <<entity>> {
+class Order {
+  - id: String
   - status: OrderStatus
   - total: Float
   - promotionCode: String
@@ -87,7 +89,8 @@ class Order <<entity>> {
   + calculateDiscount(subtotal: Float,\n<U+00A0><U+00A0><U+00A0><U+00A0>discountPercent: Float): Float
 }
 
-class OrderItem <<entity>> {
+class OrderItem {
+  - id: String
   - size: String
   - topping: String
   - qty: Int
@@ -97,7 +100,8 @@ class OrderItem <<entity>> {
   + computeLineTotal(unitPrice: Float, qty: Int): Float
 }
 
-class Product <<entity>> {
+class Product {
+  - id: String
   - name: String
   - price: Float
   - imageUrl: String
@@ -107,7 +111,8 @@ class Product <<entity>> {
   + reserveStock(items: StockRequest[]): { reservedItems: StockRequest[] }
 }
 
-class Promotion <<entity>> {
+class Promotion {
+  - id: String
   - code: String
   - description: String
   - discountPercent: Float
@@ -122,7 +127,8 @@ class Promotion <<entity>> {
   + validateMinimumOrderAmount(subtotal: Float,\n<U+00A0><U+00A0><U+00A0><U+00A0>promotion: Promotion): void
 }
 
-class Payment <<entity>> {
+class Payment {
+  - id: String
   - idempotencyKey: String
   - amount: Float
   - method: String
@@ -141,7 +147,8 @@ class Payment <<entity>> {
   + getOrderPaymentStatus(userId: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>orderId: String): PaymentStatusResult
 }
 
-class LoyaltyTransaction <<entity>> {
+class LoyaltyTransaction {
+  - id: String
   - type: LoyaltyTransactionType
   - status: LoyaltyTransactionStatus
   - pointsDelta: Int
