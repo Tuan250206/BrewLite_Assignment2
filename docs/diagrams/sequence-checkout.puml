@@ -1,0 +1,110 @@
+@startuml sequence-checkout
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+skinparam Shadowing false
+skinparam RoundCorner 0
+
+actor "Customer" as User
+participant "Next.js UI" as UI
+participant "NestJS API" as API
+database "PostgreSQL DB" as DB
+participant "Payment Service\n(Mock Gateway)" as Payment
+
+User -> UI: Nhấn tiến hành thanh toán
+activate UI
+
+UI -> API: POST /orders (danh sách món, token)
+activate API
+API -> API: Kiểm tra JWT & tính hợp lệ của giỏ hàng
+
+API -> DB: Mở Transaction & Khóa kiểm tra tồn kho
+activate DB
+DB --> API: Trả về số lượng tồn kho
+
+alt Hết hàng (Out of Stock)
+    API -> DB: Rollback hủy giao dịch
+    API --> UI: 400 Bad Request (Thông báo hết hàng)
+    UI --> User: Hiển thị cảnh báo hết sản phẩm
+else Còn hàng (In Stock)
+    API -> DB: Tạo đơn hàng mới (Trạng thái PENDING)
+    API -> DB: Trừ số lượng tồn kho
+    API -> DB: Commit chốt lưu giao dịch
+    deactivate DB
+    API --> UI: 201 Created (mã đơn hàng, tổng tiền)
+    UI --> User: Mở Modal thanh toán (Chọn Ví/Thẻ & Khuyến mãi)
+end
+deactivate API
+
+alt Khách hàng hủy đơn (User Cancels)
+    User -> UI: Nhấn nút quay lại / hủy
+    UI -> API: PATCH /orders/{id}/cancel
+    activate API
+    API -> DB: Cập nhật trạng thái CANCELLED & Hoàn trả tồn kho
+    activate DB
+    DB --> API: Hoàn tất
+    deactivate DB
+    API --> UI: 200 OK (Đã hủy đơn)
+    deactivate API
+    UI --> User: Đóng Modal thanh toán
+
+else Khách hàng xác nhận thanh toán (User Confirms Payment)
+    User -> UI: Chọn Ví/Thẻ và nhấn xác nhận thanh toán
+    UI -> API: POST /payments (mã đơn, phương thức)\n[Header: Idempotency-Key, Bearer Token]
+    activate API
+
+    API -> DB: Kiểm tra Idempotency-Key
+    activate DB
+    DB --> API: Trạng thái yêu cầu
+    deactivate DB
+
+    API -> Payment: Yêu cầu xử lý thanh toán (mã đơn, số tiền, phương thức)
+    activate Payment
+
+    alt Thanh toán Thành công (Payment Success)
+        Payment --> User: Gửi email biên lai thanh toán (Mock Email)
+        Payment --> API: 200 OK (Thành công, mã giao dịch)
+        
+        API -> DB: Mở Transaction
+        activate DB
+        API -> DB: Cập nhật trạng thái đơn thành PAID
+        API -> DB: Lưu bản ghi thanh toán thành công
+        API -> DB: Commit chốt lưu giao dịch
+        deactivate DB
+        
+        API --> UI: 200 OK (Thanh toán thành công)
+        UI --> User: Hiển thị màn hình đặt hàng thành công
+
+    else Thanh toán Thất bại (Payment Failed)
+        Payment --> API: 400 Bad Request (Thất bại, mã lỗi)
+        deactivate Payment
+
+        API -> DB: Cập nhật trạng thái đơn thành PAYMENT_FAILED
+        activate DB
+        DB --> API: Hoàn tất
+        deactivate DB
+
+        API --> UI: 400 Bad Request (Thanh toán thất bại)
+        deactivate API
+        UI --> User: Hiển thị Modal báo lỗi (Cho phép thử lại hoặc hủy)
+
+        alt Khách hàng chọn Thử lại
+            User -> UI: Nhấn nút thử lại
+            UI --> User: Giữ nguyên đơn, mở lại form thanh toán
+        else Khách hàng chọn Hủy đơn
+            User -> UI: Nhấn nút hủy bỏ
+            UI -> API: PATCH /orders/{id}/cancel
+            activate API
+            API -> DB: Hủy đơn hàng & Hoàn trả lại tồn kho
+            activate DB
+            DB --> API: Hoàn tất
+            deactivate DB
+            API --> UI: 200 OK (Đã hủy đơn)
+            deactivate API
+            UI --> User: Điều hướng quay về thực đơn chính
+        end
+    end
+end
+deactivate UI
+
+@enduml
