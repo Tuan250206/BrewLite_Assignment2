@@ -124,12 +124,12 @@ Nếu khách hàng hủy đơn khi đơn vẫn ở trạng thái **PENDING**, Br
 
 1. Khách chưa đăng nhập không thể gửi yêu cầu đặt hàng; hệ thống yêu cầu đăng nhập.
 2. Khách đã đăng nhập nhưng giỏ hàng rỗng không thể tạo đơn.
-3. Nếu số lượng tồn không đủ, hệ thống báo sản phẩm thiếu hàng và không tạo đơn **PAID**.
+3. Nếu số lượng tồn không đủ, hệ thống báo sản phẩm thiếu hàng và không tạo đơn.
 4. Với sản phẩm hợp lệ và đủ hàng, hệ thống tạo đơn **PENDING** trước khi nhận kết quả thanh toán.
-5. Khi Mock payment gateway trả thành công, đơn chuyển sang **PAID** và khách nhận được xác nhận.
+5. Khi Mock payment gateway trả thành công, đơn chuyển sang **PAID** và khách hàng được xác nhận.
 6. Khi Mock payment gateway trả thất bại, đơn chuyển sang **FAILED**, không cộng điểm và số lượng đã giữ được hoàn lại một lần.
 7. Khách có thể hủy đơn **PENDING**; đơn chuyển sang **CANCELLED** và số lượng đã giữ được hoàn lại một lần.
-8. Nếu khách rời trang trong lúc đơn **PENDING**, trạng thái đơn không tự đổi thành **PAID** hoặc **CANCELLED**; hệ thống xử lý khi có kết quả thanh toán hoặc theo quy tắc hết hạn đã thống nhất.
+8. Nếu khách rời trang trong lúc đơn **PENDING**, trạng thái đơn không tự đổi thành **PAID** hoặc **CANCELLED**; hệ thống xử lý khi có kết quả thanh toán hoặc theo quy tắc hết hạn.
 9. Mã khuyến mãi hợp lệ làm tổng tiền thay đổi theo điều kiện của chương trình; mã không hợp lệ không được áp dụng và hệ thống thông báo lý do.
 10. Một đơn **PAID** chỉ được cộng điểm thưởng một lần, kể cả khi kết quả thanh toán được gửi lại.
 
