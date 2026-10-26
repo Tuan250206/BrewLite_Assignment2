@@ -5,8 +5,8 @@ skinparam shadowing false
 skinparam defaultFontName Arial
 skinparam defaultFontSize 13
 skinparam roundcorner 0
-skinparam nodesep 70
-skinparam ranksep 100
+skinparam nodesep 130
+skinparam ranksep 160
 skinparam backgroundColor #FFFFFF
 skinparam ArrowColor #333333
 skinparam packageStyle rectangle
@@ -31,30 +31,32 @@ skinparam package {
   FontColor #000000
 }
 
-title BrewLite - Deployment Diagram (Render)
+title BrewLite - Production Architecture (Render)
 
-actor "Customer device\nBrowser / installed PWA" as Customer
+package "User Device" {
+  actor "Customer device\nBrowser" as Customer
+}
 
-package "LOCAL DEVELOPMENT" as Local {
+package "Local Development" as Local {
   node "Developer workstation" {
-    artifact "Git working tree\napps/web, apps/api" as Source
-    node "Next.js dev server\nlocalhost:3000" as LocalWeb
+    artifact "Git working tree\nfrontend/, backend/" as Source
+    node "Next.js app / browser client\nlocalhost:3000" as LocalWeb
     node "NestJS API\nlocalhost:3001" as LocalApi
-    artifact "Local environment\n.env.local (untracked)" as LocalEnv
+    artifact "Local environment files\nfrontend/.env.local\nbackend/.env (untracked)" as LocalEnv
   }
-  database "Local PostgreSQL\nlocalhost:5432" as LocalDb
+  database "Local PostgreSQL (Docker Compose)\nlocalhost:5432\nvolume: postgres_data" as LocalDb
   Source --> LocalWeb : npm run dev
   Source --> LocalApi : npm run start:dev
-  LocalWeb --> LocalApi : HTTP :3001
+  LocalWeb --> LocalApi : NEXT_PUBLIC_API_URL\nHTTP :3001 (browser request)
   LocalApi --> LocalDb : PostgreSQL :5432
   LocalEnv ..> LocalWeb : local config
   LocalEnv ..> LocalApi : local config
 }
 
-package "CI / CONTAINER DELIVERY" as CI {
+package "CI / Container Delivery" as CI {
   node "GitHub repository" as GitHub
   node "GitHub Actions runner" as Actions {
-    artifact "Test and build\nweb + api images" as Build
+    artifact "Checks and build\nfrontend + backend images" as Build
   }
   node "GitHub Container Registry\n(GHCR)" as Registry {
     artifact "BrewLite web image" as WebImage
@@ -66,31 +68,31 @@ package "CI / CONTAINER DELIVERY" as CI {
   Actions ..> HookSecret : read secret
 }
 
-package "PRODUCTION" as Production {
+package "Production (Render)" as Production {
   node "Render platform" as Render {
     node "Render edge / managed TLS\nHTTPS :443" as Edge
-    node "Next.js Web Service\nSSR / PWA assets\nHTTP :10000" as Web
-    node "NestJS API Web Service\nHTTP :10000\nGET /health" as API
-    database "Render PostgreSQL\ninternal URL :5432" as Postgres
-    artifact "Render-managed\npersistent database storage" as Storage
-    artifact "Render environment variables\nDATABASE_URL, JWT_SECRET,\nPAYMENT_*" as Secrets
+    node "Next.js Web Service\nPublic HTTPS :443\nAccessible to users\nSSR / web assets" as Web
+    node "NestJS API Web Service\nPublic HTTPS API for browser client\nPrivate access possible with BFF\nRender port requires change from :3001\nGET /health not implemented" as API
+    database "Managed PostgreSQL\nPrivate network :5432\nOnly backend connects" as Postgres
+    artifact "Persistent Database Storage" as Storage
+    artifact "Backend environment\nDATABASE_URL\nJWT_SECRET\nMOCK_GATEWAY_WEBHOOK_SECRET\nPAYMENT_WEBHOOK_URL" as Secrets
+    artifact "Frontend environment\nNEXT_PUBLIC_API_URL\n(set at build time)" as WebConfig
     artifact "Render logs\nservice and deploy logs" as Logs
 
-    Edge --> Web : HTTPS :443\npublic web route
-    Edge --> API : HTTPS :443\npublic API route
-    Web --> API : HTTP :10000\nprivate network, same region
-    API --> Postgres : TCP :5432\nprivate database URL
+    Edge --> Web : HTTP :10000\nafter public TLS termination
+    Edge --> API : HTTP :10000\nafter public TLS termination
     Postgres --> Storage : durable data
-    Secrets ..> Web : injected at runtime
+    API --> Postgres : private TCP :5432\nonly database client
     Secrets ..> API : injected at runtime
+    WebConfig ..> Web : set at build time
     Web ..> Logs : stdout / stderr
     API ..> Logs : stdout / stderr
   }
 }
 
 Customer --> Edge : HTTPS :443
-Registry --> Web : pull web image
-Registry --> API : pull api image
+Registry --> Web : pull frontend image
+Registry --> API : pull backend image
 Actions ..> Render : HTTPS deploy hook\n(secret; trigger deploy)
 API ..> API : Render HTTP health check\nGET /health
 
@@ -99,15 +101,13 @@ note bottom of Local
   Never copy production secrets into local files or Git.
 end note
 
-note bottom of CI
-  CI tests before publishing tagged images.
-  Registry credentials and deploy-hook URL are GitHub secrets.
-end note
-
 note bottom of Production
   Keep Render services in the same region for private networking.
-  The API can serve browser requests over HTTPS and use its private
-  address for server-to-server traffic. Use the internal DB URL.
+  Current frontend calls the API from the browser, so API needs a public HTTPS
+  route. To make API private-only, add a Next.js server-side proxy/BFF first.
+  Database has no public route and accepts connections only from the API.
+  Render deployment is not configured; API port binding and GET /health
+  still need implementation.
 end note
 
 @enduml
