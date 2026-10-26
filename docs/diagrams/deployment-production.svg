@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1740" height="1060" viewBox="0 0 1740 1060" role="img" aria-labelledby="title description">
+  <title id="title">BrewLite production deployment diagram on Render</title>
+  <desc id="description">Local development, GitHub Actions and GHCR delivery, and Render production services for the BrewLite Next.js, NestJS and PostgreSQL system.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 z" fill="#000000"/>
+    </marker>
+    <marker id="arrow-dashed" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+      <path d="M0,0 L10,4 L0,8 z" fill="#000000"/>
+    </marker>
+    <style>
+      text { font-family: Arial, sans-serif; fill: #000000; }
+      .title { font-size: 27px; font-weight: 700; }
+      .subtitle { font-size: 14px; }
+      .section { font-size: 18px; font-weight: 700; }
+      .box-title { font-size: 15px; font-weight: 700; }
+      .body { font-size: 13px; }
+      .small { font-size: 12px; }
+      .boundary { stroke: #000000; stroke-width: 1.5; stroke-dasharray: 9 6; }
+      .node { fill: #FFFFFF; stroke: #000000; stroke-width: 1.5; }
+      .flow { fill: none; stroke: #000000; stroke-width: 1.5; marker-end: url(#arrow); }
+      .async { fill: none; stroke: #000000; stroke-width: 1.5; stroke-dasharray: 7 5; marker-end: url(#arrow-dashed); }
+      .flow-label { font-size: 11px; }
+    </style>
+  </defs>
+
+  <rect width="1740" height="1060" fill="#FFFFFF"/>
+  <text x="870" y="42" text-anchor="middle" class="title">BrewLite - Production Deployment (Render)</text>
+  <text x="870" y="67" text-anchor="middle" class="subtitle">Next.js PWA + NestJS API + managed PostgreSQL</text>
+
+  <rect x="28" y="90" width="330" height="930" fill="#FFFFFF" class="boundary"/>
+  <text x="48" y="122" class="section">LOCAL DEVELOPMENT</text>
+
+  <rect x="48" y="145" width="290" height="110" class="node"/>
+  <text x="193" y="171" text-anchor="middle" class="box-title">Developer workstation</text>
+  <text x="193" y="196" text-anchor="middle" class="body">Git working tree</text>
+  <text x="193" y="217" text-anchor="middle" class="small">apps/web · apps/api</text>
+  <text x="193" y="238" text-anchor="middle" class="small">Node.js / package scripts</text>
+
+  <rect x="48" y="298" width="290" height="92" class="node"/>
+  <text x="193" y="326" text-anchor="middle" class="box-title">Next.js dev server</text>
+  <text x="193" y="350" text-anchor="middle" class="body">localhost:3000</text>
+  <text x="193" y="372" text-anchor="middle" class="small">Web UI / PWA</text>
+
+  <rect x="48" y="446" width="290" height="92" class="node"/>
+  <text x="193" y="474" text-anchor="middle" class="box-title">NestJS API</text>
+  <text x="193" y="498" text-anchor="middle" class="body">localhost:3001</text>
+  <text x="193" y="520" text-anchor="middle" class="small">Local HTTP API</text>
+
+  <rect x="48" y="594" width="290" height="104" class="node"/>
+  <text x="193" y="623" text-anchor="middle" class="box-title">Local PostgreSQL</text>
+  <text x="193" y="648" text-anchor="middle" class="body">localhost:5432</text>
+  <text x="193" y="675" text-anchor="middle" class="small">Development database</text>
+
+  <rect x="48" y="757" width="290" height="113" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+  <text x="193" y="786" text-anchor="middle" class="box-title">Local configuration</text>
+  <text x="193" y="812" text-anchor="middle" class="body">.env.local (untracked)</text>
+  <text x="193" y="837" text-anchor="middle" class="small">Use local-only values;</text>
+  <text x="193" y="857" text-anchor="middle" class="small">never commit secrets.</text>
+
+  <path d="M193 255 L193 296" class="flow"/>
+  <path d="M193 390 L193 444" class="flow"/>
+  <text x="204" y="421" class="flow-label">HTTP :3001</text>
+  <path d="M193 538 L193 592" class="flow"/>
+  <text x="204" y="570" class="flow-label">PostgreSQL :5432</text>
+  <path d="M338 200 L370 200 L370 340 L338 340" class="async"/>
+  <path d="M338 214 L380 214 L380 488 L338 488" class="async"/>
+  <text x="282" y="281" class="flow-label">run source</text>
+
+  <rect x="422" y="90" width="470" height="930" fill="#FFFFFF" class="boundary"/>
+  <text x="442" y="122" class="section">CI / CONTAINER DELIVERY</text>
+
+  <rect x="447" y="150" width="420" height="212" class="node"/>
+  <text x="657" y="178" text-anchor="middle" class="box-title">GitHub repository + Actions runner</text>
+  <text x="657" y="207" text-anchor="middle" class="body">Push / merge triggers CI</text>
+  <rect x="478" y="226" width="358" height="106" fill="#FFFFFF" stroke="#000000"/>
+  <text x="657" y="251" text-anchor="middle" class="body">Run checks and tests</text>
+  <text x="657" y="276" text-anchor="middle" class="body">Build web and API container images</text>
+  <text x="657" y="301" text-anchor="middle" class="body">Tag images with commit SHA</text>
+  <text x="657" y="322" text-anchor="middle" class="small">Publish only after required checks pass</text>
+
+  <rect x="470" y="434" width="380" height="150" class="node"/>
+  <text x="660" y="464" text-anchor="middle" class="box-title">GitHub Container Registry (GHCR)</text>
+  <rect x="495" y="483" width="155" height="75" fill="#FFFFFF" stroke="#000000"/>
+  <text x="572" y="512" text-anchor="middle" class="body">BrewLite web</text>
+  <text x="572" y="535" text-anchor="middle" class="small">Docker image</text>
+  <rect x="670" y="483" width="155" height="75" fill="#FFFFFF" stroke="#000000"/>
+  <text x="747" y="512" text-anchor="middle" class="body">BrewLite API</text>
+  <text x="747" y="535" text-anchor="middle" class="small">Docker image</text>
+
+  <rect x="470" y="644" width="380" height="133" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+  <text x="660" y="674" text-anchor="middle" class="box-title">GitHub Actions secrets</text>
+  <text x="660" y="704" text-anchor="middle" class="body">Registry credentials (if private)</text>
+  <text x="660" y="730" text-anchor="middle" class="body">RENDER_DEPLOY_HOOK_URL</text>
+  <text x="660" y="756" text-anchor="middle" class="small">Secret values are never placed in the image</text>
+
+  <rect x="470" y="830" width="380" height="112" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+  <text x="660" y="860" text-anchor="middle" class="box-title">Delivery sequence</text>
+  <text x="660" y="887" text-anchor="middle" class="body">Tests pass → push tagged images → trigger deploy</text>
+  <text x="660" y="915" text-anchor="middle" class="small">Render pulls the configured image from GHCR</text>
+
+  <path d="M657 362 L657 432" class="flow"/>
+  <text x="668" y="405" class="flow-label">HTTPS :443, push images</text>
+  <path d="M850 510 L910 510 L910 320 L1320 320 L1320 360 L1340 360" class="flow"/>
+  <text x="1080" y="310" text-anchor="middle" class="flow-label">pull web image</text>
+  <path d="M850 550 L940 550 L940 480 L1320 480 L1320 580 L1340 580" class="flow"/>
+  <text x="1110" y="470" text-anchor="middle" class="flow-label">pull API image</text>
+  <path d="M850 700 L930 700 L930 800 L1030 800" class="async"/>
+  <text x="980" y="790" text-anchor="middle" class="flow-label">HTTPS deploy hook</text>
+
+  <rect x="1030" y="90" width="672" height="155" fill="#FFFFFF" stroke="#000000" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="1050" y="120" class="section">USER DEVICE (outside Render)</text>
+  <rect x="1075" y="143" width="580" height="78" class="node"/>
+  <text x="1365" y="172" text-anchor="middle" class="box-title">Customer browser / installed PWA</text>
+  <text x="1365" y="199" text-anchor="middle" class="body">Accesses public HTTPS endpoints on port 443</text>
+
+  <rect x="1030" y="270" width="672" height="750" fill="#FFFFFF" class="boundary"/>
+  <text x="1050" y="302" class="section">PRODUCTION — RENDER (same region)</text>
+
+  <rect x="1060" y="335" width="230" height="120" class="node"/>
+  <text x="1175" y="364" text-anchor="middle" class="box-title">Render edge / TLS</text>
+  <text x="1175" y="390" text-anchor="middle" class="body">HTTPS termination</text>
+  <text x="1175" y="415" text-anchor="middle" class="small">Public routes :443</text>
+  <text x="1175" y="437" text-anchor="middle" class="small">Managed certificates</text>
+
+  <rect x="1340" y="335" width="330" height="120" class="node"/>
+  <text x="1505" y="364" text-anchor="middle" class="box-title">Next.js Web Service</text>
+  <text x="1505" y="390" text-anchor="middle" class="body">SSR / PWA asset delivery</text>
+  <text x="1505" y="415" text-anchor="middle" class="small">Render web service · HTTP :10000</text>
+  <text x="1505" y="437" text-anchor="middle" class="small">Image built from apps/web</text>
+
+  <rect x="1340" y="510" width="330" height="145" class="node"/>
+  <text x="1505" y="540" text-anchor="middle" class="box-title">NestJS API Web Service</text>
+  <text x="1505" y="566" text-anchor="middle" class="body">HTTP server :10000</text>
+  <text x="1505" y="591" text-anchor="middle" class="body">Health check: GET /health</text>
+  <text x="1505" y="617" text-anchor="middle" class="small">Image built from apps/api</text>
+  <text x="1505" y="640" text-anchor="middle" class="small">Public HTTPS + private address</text>
+
+  <rect x="1060" y="510" width="230" height="145" class="node"/>
+  <text x="1175" y="540" text-anchor="middle" class="box-title">Render PostgreSQL</text>
+  <text x="1175" y="566" text-anchor="middle" class="body">Managed database</text>
+  <text x="1175" y="591" text-anchor="middle" class="small">Internal URL · TCP :5432</text>
+  <text x="1175" y="617" text-anchor="middle" class="small">TLS per connection settings</text>
+  <text x="1175" y="640" text-anchor="middle" class="small">No public DB access required</text>
+
+  <rect x="1060" y="700" width="230" height="90" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+  <text x="1175" y="730" text-anchor="middle" class="box-title">Persistent database storage</text>
+  <text x="1175" y="757" text-anchor="middle" class="small">Managed with Render Postgres</text>
+  <text x="1175" y="778" text-anchor="middle" class="small">Backups / retention configured separately</text>
+
+  <rect x="1340" y="700" width="330" height="105" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+  <text x="1505" y="730" text-anchor="middle" class="box-title">Render environment variables</text>
+  <text x="1505" y="756" text-anchor="middle" class="small">DATABASE_URL · JWT_SECRET · PAYMENT_*</text>
+  <text x="1505" y="782" text-anchor="middle" class="small">Injected at runtime; never committed</text>
+
+  <rect x="1340" y="845" width="330" height="92" fill="#FFFFFF" stroke="#000000" stroke-width="1.5"/>
+  <text x="1505" y="875" text-anchor="middle" class="box-title">Render logs and monitoring</text>
+  <text x="1505" y="902" text-anchor="middle" class="small">Application stdout / stderr + deploy logs</text>
+  <text x="1505" y="925" text-anchor="middle" class="small">Health checks gate traffic to new instances</text>
+
+  <path d="M1365 221 L1365 264 L1175 264 L1175 333" class="flow"/>
+  <text x="1260" y="258" text-anchor="middle" class="flow-label">HTTPS :443</text>
+  <path d="M1290 380 L1340 380" class="flow"/>
+  <text x="1315" y="369" text-anchor="middle" class="flow-label">HTTP :10000</text>
+  <path d="M1290 420 L1315 420 L1315 560 L1340 560" class="flow"/>
+  <text x="1325" y="500" text-anchor="middle" class="flow-label">HTTPS :443</text>
+  <path d="M1505 455 L1505 508" class="flow"/>
+  <text x="1517" y="487" class="flow-label">private HTTP :10000</text>
+  <path d="M1340 580 L1292 580" class="flow"/>
+  <text x="1315" y="570" text-anchor="middle" class="flow-label">private TCP :5432</text>
+  <path d="M1175 655 L1175 698" class="flow"/>
+  <path d="M1360 700 L1320 700 L1320 635 L1340 635" class="async"/>
+  <path d="M1640 700 L1690 700 L1690 430 L1670 430" class="async"/>
+  <text x="1505" y="674" text-anchor="middle" class="flow-label">runtime configuration</text>
+  <path d="M1650 455 L1680 455 L1680 865 L1670 865" class="async"/>
+  <path d="M1650 620 L1690 620 L1690 900 L1670 900" class="async"/>
+  <text x="1655" y="830" text-anchor="end" class="flow-label">stdout / stderr</text>
+  <rect x="28" y="1028" width="1684" height="1" fill="#000000"/>
+  <text x="870" y="1048" text-anchor="middle" class="small">Ports are service/container ports; public traffic uses HTTPS 443. Render service and database details must be configured in the dashboard.</text>
+</svg>

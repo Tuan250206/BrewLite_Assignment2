@@ -1,0 +1,113 @@
+@startuml deployment-production
+left to right direction
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam roundcorner 0
+skinparam nodesep 70
+skinparam ranksep 100
+skinparam backgroundColor #FFFFFF
+skinparam ArrowColor #333333
+skinparam packageStyle rectangle
+skinparam node {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+  FontColor #000000
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+  FontColor #000000
+}
+skinparam artifact {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+  FontColor #000000
+}
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+  FontColor #000000
+}
+
+title BrewLite - Deployment Diagram (Render)
+
+actor "Customer device\nBrowser / installed PWA" as Customer
+
+package "LOCAL DEVELOPMENT" as Local {
+  node "Developer workstation" {
+    artifact "Git working tree\napps/web, apps/api" as Source
+    node "Next.js dev server\nlocalhost:3000" as LocalWeb
+    node "NestJS API\nlocalhost:3001" as LocalApi
+    artifact "Local environment\n.env.local (untracked)" as LocalEnv
+  }
+  database "Local PostgreSQL\nlocalhost:5432" as LocalDb
+  Source --> LocalWeb : npm run dev
+  Source --> LocalApi : npm run start:dev
+  LocalWeb --> LocalApi : HTTP :3001
+  LocalApi --> LocalDb : PostgreSQL :5432
+  LocalEnv ..> LocalWeb : local config
+  LocalEnv ..> LocalApi : local config
+}
+
+package "CI / CONTAINER DELIVERY" as CI {
+  node "GitHub repository" as GitHub
+  node "GitHub Actions runner" as Actions {
+    artifact "Test and build\nweb + api images" as Build
+  }
+  node "GitHub Container Registry\n(GHCR)" as Registry {
+    artifact "BrewLite web image" as WebImage
+    artifact "BrewLite api image" as ApiImage
+  }
+  artifact "GitHub Actions secret\nRENDER_DEPLOY_HOOK_URL" as HookSecret
+  GitHub --> Actions : push / merge
+  Actions --> Registry : HTTPS :443\npush tagged images
+  Actions ..> HookSecret : read secret
+}
+
+package "PRODUCTION" as Production {
+  node "Render platform" as Render {
+    node "Render edge / managed TLS\nHTTPS :443" as Edge
+    node "Next.js Web Service\nSSR / PWA assets\nHTTP :10000" as Web
+    node "NestJS API Web Service\nHTTP :10000\nGET /health" as API
+    database "Render PostgreSQL\ninternal URL :5432" as Postgres
+    artifact "Render-managed\npersistent database storage" as Storage
+    artifact "Render environment variables\nDATABASE_URL, JWT_SECRET,\nPAYMENT_*" as Secrets
+    artifact "Render logs\nservice and deploy logs" as Logs
+
+    Edge --> Web : HTTPS :443\npublic web route
+    Edge --> API : HTTPS :443\npublic API route
+    Web --> API : HTTP :10000\nprivate network, same region
+    API --> Postgres : TCP :5432\nprivate database URL
+    Postgres --> Storage : durable data
+    Secrets ..> Web : injected at runtime
+    Secrets ..> API : injected at runtime
+    Web ..> Logs : stdout / stderr
+    API ..> Logs : stdout / stderr
+  }
+}
+
+Customer --> Edge : HTTPS :443
+Registry --> Web : pull web image
+Registry --> API : pull api image
+Actions ..> Render : HTTPS deploy hook\n(secret; trigger deploy)
+API ..> API : Render HTTP health check\nGET /health
+
+note bottom of Local
+  Local services run on the developer workstation.
+  Never copy production secrets into local files or Git.
+end note
+
+note bottom of CI
+  CI tests before publishing tagged images.
+  Registry credentials and deploy-hook URL are GitHub secrets.
+end note
+
+note bottom of Production
+  Keep Render services in the same region for private networking.
+  The API can serve browser requests over HTTPS and use its private
+  address for server-to-server traffic. Use the internal DB URL.
+end note
+
+@enduml
