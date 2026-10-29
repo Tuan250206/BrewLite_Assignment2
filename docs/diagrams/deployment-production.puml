@@ -1,0 +1,113 @@
+@startuml deployment-production
+left to right direction
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam roundcorner 0
+skinparam nodesep 130
+skinparam ranksep 160
+skinparam backgroundColor #FFFFFF
+skinparam ArrowColor #333333
+skinparam packageStyle rectangle
+skinparam node {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+  FontColor #000000
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+  FontColor #000000
+}
+skinparam artifact {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+  FontColor #000000
+}
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+  FontColor #000000
+}
+
+title BrewLite - Production Architecture (Render)
+
+package "User Device" {
+  actor "Customer device\nBrowser" as Customer
+}
+
+package "Local Development" as Local {
+  node "Developer workstation" {
+    artifact "Git working tree\nfrontend/, backend/" as Source
+    node "Next.js app / browser client\nlocalhost:3000" as LocalWeb
+    node "NestJS API\nlocalhost:3001" as LocalApi
+    artifact "Local environment files\nfrontend/.env.local\nbackend/.env (untracked)" as LocalEnv
+  }
+  database "Local PostgreSQL (Docker Compose)\nlocalhost:5432\nvolume: postgres_data" as LocalDb
+  Source --> LocalWeb : npm run dev
+  Source --> LocalApi : npm run start:dev
+  LocalWeb --> LocalApi : NEXT_PUBLIC_API_URL\nHTTP :3001 (browser request)
+  LocalApi --> LocalDb : PostgreSQL :5432
+  LocalEnv ..> LocalWeb : local config
+  LocalEnv ..> LocalApi : local config
+}
+
+package "CI / Container Delivery" as CI {
+  node "GitHub repository" as GitHub
+  node "GitHub Actions runner" as Actions {
+    artifact "Checks and build\nfrontend + backend images" as Build
+  }
+  node "GitHub Container Registry\n(GHCR)" as Registry {
+    artifact "BrewLite web image" as WebImage
+    artifact "BrewLite api image" as ApiImage
+  }
+  artifact "GitHub Actions secret\nRENDER_DEPLOY_HOOK_URL" as HookSecret
+  GitHub --> Actions : push / merge
+  Actions --> Registry : HTTPS :443\npush tagged images
+  Actions ..> HookSecret : read secret
+}
+
+package "Production (Render)" as Production {
+  node "Render platform" as Render {
+    node "Render edge / managed TLS\nHTTPS :443" as Edge
+    node "Next.js Web Service\nPublic HTTPS :443\nAccessible to users\nSSR / web assets" as Web
+    node "NestJS API Web Service\nPublic HTTPS API for browser client\nPrivate access possible with BFF\nRender port requires change from :3001\nGET /health not implemented" as API
+    database "Managed PostgreSQL\nPrivate network :5432\nOnly backend connects" as Postgres
+    artifact "Persistent Database Storage" as Storage
+    artifact "Backend environment\nDATABASE_URL\nJWT_SECRET\nMOCK_GATEWAY_WEBHOOK_SECRET\nPAYMENT_WEBHOOK_URL" as Secrets
+    artifact "Frontend environment\nNEXT_PUBLIC_API_URL\n(set at build time)" as WebConfig
+    artifact "Render logs\nservice and deploy logs" as Logs
+
+    Edge --> Web : HTTP :10000\nafter public TLS termination
+    Edge --> API : HTTP :10000\nafter public TLS termination
+    Postgres --> Storage : durable data
+    API --> Postgres : private TCP :5432\nonly database client
+    Secrets ..> API : injected at runtime
+    WebConfig ..> Web : set at build time
+    Web ..> Logs : stdout / stderr
+    API ..> Logs : stdout / stderr
+  }
+}
+
+Customer --> Edge : HTTPS :443
+Registry --> Web : pull frontend image
+Registry --> API : pull backend image
+Actions ..> Render : HTTPS deploy hook\n(secret; trigger deploy)
+API ..> API : Render HTTP health check\nGET /health
+
+note bottom of Local
+  Local services run on the developer workstation.
+  Never copy production secrets into local files or Git.
+end note
+
+note bottom of Production
+  Keep Render services in the same region for private networking.
+  Current frontend calls the API from the browser, so API needs a public HTTPS
+  route. To make API private-only, add a Next.js server-side proxy/BFF first.
+  Database has no public route and accepts connections only from the API.
+  Render deployment is not configured; API port binding and GET /health
+  still need implementation.
+end note
+
+@enduml
