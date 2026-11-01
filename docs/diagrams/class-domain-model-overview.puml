@@ -1,0 +1,184 @@
+@startuml
+title Class Diagram
+
+' ====== Style giong hinh mau: nen trang, vien den, khong bo goc, khong bong ======
+skinparam backgroundColor White
+skinparam shadowing false
+skinparam roundCorner 0
+skinparam linetype ortho
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam classFontStyle bold
+skinparam classAttributeFontStyle plain
+skinparam classAttributeIconSize 0
+skinparam nodesep 90
+skinparam ranksep 80
+skinparam class {
+  BackgroundColor White
+  BorderColor Black
+  BorderThickness 1.2
+  FontStyle bold
+  ArrowColor Black
+  FontColor Black
+  AttributeFontColor Black
+  StereotypeFontColor Black
+  StereotypeFontSize 12
+}
+skinparam stereotypeCBackgroundColor White
+hide circle
+hide empty members
+
+' ===================== ENUMERATIONS =====================
+class UserRole <<enumeration>> #E3F4F4 {
+  CUSTOMER
+  STAFF
+}
+class OrderStatus <<enumeration>> #E3F4F4 {
+  PENDING
+  PAID
+  PREPARING
+  READY
+  COMPLETED
+  PAYMENT_FAILED
+  CANCELLED
+}
+class PaymentStatus <<enumeration>> #E3F4F4 {
+  PENDING
+  PAID
+  PAYMENT_FAILED
+}
+class LoyaltyTransactionType <<enumeration>> #E3F4F4 {
+  EARN
+  REDEEM
+  REDEEM_REFUND
+  EARN_REVERSAL
+}
+class LoyaltyTransactionStatus <<enumeration>> #E3F4F4 {
+  RESERVED
+  POSTED
+  RELEASED
+}
+
+' ===================== CLASSES =====================
+class User {
+  - id: String
+  - email: String
+  - passwordHash: String
+  - role: UserRole
+  - loyaltyPoints: Int
+  - createdAt: DateTime
+  --
+  + register(email: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>password: String): { accessToken: String, user: User }
+  + login(email: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>password: String): { accessToken: String, user: User }
+  + getLoyaltyPoints(userId: String): { loyaltyPoints: Int }
+}
+
+class Order {
+  - id: String
+  - status: OrderStatus
+  - total: Float
+  - promotionCode: String
+  - promoDiscount: Float
+  - pointsRedeemed: Int
+  - createdAt: DateTime
+  --
+  + create(userId: String, dto: CreateOrderDto): Order
+  + cancel(userId: String, orderId: String): Order
+  + updateStatus(orderId: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>status: OrderStatus): Order
+  + validatePointsRedemption(pointsRedeemed: Int,\n<U+00A0><U+00A0><U+00A0><U+00A0>totalAfterPromotion: Float): void
+  + calculateDiscount(subtotal: Float,\n<U+00A0><U+00A0><U+00A0><U+00A0>discountPercent: Float): Float
+}
+
+class OrderItem {
+  - id: String
+  - size: String
+  - topping: String
+  - qty: Int
+  - lineTotal: Float
+  --
+  + computeUnitPrice(basePrice: Float, size: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>toppings: String[]): Float
+  + computeLineTotal(unitPrice: Float, qty: Int): Float
+}
+
+class Product {
+  - id: String
+  - name: String
+  - price: Float
+  - imageUrl: String
+  - stock: Int
+  --
+  + validateStock(productId: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>requestedQty: Int): void
+  + reserveStock(items: StockRequest[]): { reservedItems: StockRequest[] }
+}
+
+class Promotion {
+  - id: String
+  - code: String
+  - description: String
+  - discountPercent: Float
+  - minimumOrderAmount: Int
+  - startsAt: DateTime
+  - expiresAt: DateTime
+  - isActive: Boolean
+  - createdAt: DateTime
+  --
+  + create(dto: CreatePromotionDto): Promotion
+  + findActive(now: DateTime): Promotion[]
+  + validateMinimumOrderAmount(subtotal: Float,\n<U+00A0><U+00A0><U+00A0><U+00A0>promotion: Promotion): void
+}
+
+class Payment {
+  - id: String
+  - idempotencyKey: String
+  - amount: Float
+  - method: String
+  - status: PaymentStatus
+  - confirmationTokenHash: String
+  - expiresAt: DateTime
+  - providerTransactionId: String
+  - gatewayPaymentUrl: String
+  - testAccount: String
+  - testCredentialHash: String
+  - createdAt: DateTime
+  --
+  + processPayment(userId: String, dto: CreatePaymentDto,\n<U+00A0><U+00A0><U+00A0><U+00A0>idempotencyKey: String): PaymentProcessResult
+  + handleGatewayWebhook(payload: WebhookPayload,\n<U+00A0><U+00A0><U+00A0><U+00A0>signature: String): WebhookResult
+  + verifyWebhookSignature(payload: WebhookPayload,\n<U+00A0><U+00A0><U+00A0><U+00A0>signature: String): Boolean
+  + getOrderPaymentStatus(userId: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>orderId: String): PaymentStatusResult
+}
+
+class LoyaltyTransaction {
+  - id: String
+  - type: LoyaltyTransactionType
+  - status: LoyaltyTransactionStatus
+  - pointsDelta: Int
+  - idempotencyKey: String
+  - createdAt: DateTime
+  --
+  + createRedemptionReservation(userId: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>orderId: String, pointsDelta: Int): LoyaltyTransaction
+  + releaseReservation(transactionId: String): LoyaltyTransaction
+  + createEarnTransaction(userId: String, orderId: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>amount: Float): LoyaltyTransaction
+}
+
+' ===================== RELATIONSHIPS =====================
+' Association (co huong doc nhu "wrote", "borrowed" trong hinh mau)
+User "1" -right- "0..*" Order : places >
+Order "0..*" -right- "0..1" Promotion : applies >
+Order "1" -up- "0..*" Payment : paid by >
+User "1" -down- "0..*" LoyaltyTransaction : owns >
+LoyaltyTransaction "0..*" -[norank]right- "0..1" Order : relates to >
+
+' Composition (hinh thoi dac): Order mat thi OrderItem mat theo
+Order "1" *-down- "1..*" OrderItem : contains >
+
+' Association OrderItem -> Product
+OrderItem "0..*" -down- "1" Product : refers to >
+
+' Dependency <<use>> toi enumeration (net dut)
+User ..left..> UserRole : <<use>>
+Payment ..right..> PaymentStatus : <<use>>
+Order ..> OrderStatus : <<use>>
+LoyaltyTransaction ..left..> LoyaltyTransactionType : <<use>>
+LoyaltyTransaction ..left..> LoyaltyTransactionStatus : <<use>>
+
+@enduml
