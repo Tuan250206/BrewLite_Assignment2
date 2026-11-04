@@ -12,13 +12,10 @@
 | Khách hàng           | Khởi tạo đặt hàng, chọn các tùy chọn thanh toán, và nhận kết quả.         |
 | Mock payment gateway | Nhận yêu cầu thanh toán mô phỏng và trả kết quả thành công hoặc thất bại. |
 
-Frontend, backend và cơ sở dữ liệu là các thành phần nội bộ của BrewLite, không phải tác nhân. Nhân viên không tham gia use case trọng tâm này.
-
-Theo sơ đồ use case của lead, **Xử lý thanh toán mô phỏng** được include trong use case này. Các use case **Áp mã khuyến mãi**, **Đổi điểm giảm giá**, **Tích điểm thưởng** và **Hủy đơn** là các nhánh `<<extend>>`.
 
 ## 2. Sự kiện kích hoạt
 
-Khách hàng đã đăng nhập và chọn **Đặt hàng/Thanh toán** từ giỏ hàng.
+Khách hàng đã đăng nhập và tiến hành thanh toán từ giỏ hàng.
 
 ## 3. Tiền điều kiện
 
@@ -55,7 +52,7 @@ Khách hàng đã đăng nhập và chọn **Đặt hàng/Thanh toán** từ gi�
 
 ## 6. Luồng thay thế
 
-### A1 – Khách hàng hủy đơn khi đơn còn PENDING
+### Khách hàng hủy đơn khi đơn còn PENDING
 
 1. Khách hàng gửi yêu cầu hủy đơn.
 2. BrewLite kiểm tra đơn vẫn ở trạng thái **PENDING**.
@@ -66,39 +63,33 @@ Nếu thanh toán đã được xác nhận thành công trước khi yêu cầu
 
 ## 7. Luồng ngoại lệ
 
-### E1 – Phiên đăng nhập hết hạn
 
-Nếu JWT hết hạn khi khách hàng gửi yêu cầu, BrewLite từ chối request với mã **401**, yêu cầu khách hàng đăng nhập lại và không tạo đơn hàng.
-
-### E2 – Sản phẩm hoặc tùy chọn không còn hợp lệ
+### E1 – Sản phẩm hoặc tùy chọn không còn hợp lệ
 
 Nếu sản phẩm không còn được bán hoặc tùy chọn đã chọn không hợp lệ, BrewLite thông báo nội dung cần sửa và không tạo đơn hàng.
 
-### E3 – Tồn kho không đủ
+### E2 – Tồn kho không đủ
 
 Nếu số lượng trong giỏ vượt quá số lượng khả dụng, BrewLite thông báo sản phẩm không đủ hàng, giữ nguyên giỏ hàng và thông tin giá đang hiển thị, đồng thời không tạo đơn hàng. Ví dụ: khách yêu cầu 20 sản phẩm nhưng chỉ còn 10 sản phẩm khả dụng.
 
-### E4 – Thanh toán mô phỏng thất bại
+### E3 – Thanh toán mô phỏng thất bại
 
 Nếu Mock payment gateway trả kết quả thất bại, BrewLite chuyển đơn sang **PAYMENT_FAILED** và thông báo kết quả. Khách hàng có thể thử thanh toán lại hoặc hủy đơn theo trạng thái hiện tại.
 
-### E5 – Giao dịch thanh toán hết hạn
+### E4 – Giao dịch thanh toán hết hạn
 
 Giao dịch mô phỏng có thời hạn 15 phút. Nếu khách hàng xác nhận thanh toán sau thời hạn này, BrewLite xử lý kết quả là thất bại và không chuyển đơn sang **PAID**.
 
-### E6 – Khách hàng rời trang khi đơn còn PENDING
+### E5 – Khách hàng rời trang khi đơn còn PENDING
 
 Việc đóng trang hoặc rời khỏi quy trình không tự hủy đơn và không làm đơn chuyển sang **PAID**. Đơn giữ trạng thái **PENDING** cho đến khi BrewLite nhận và xác thực kết quả thanh toán hoặc xử lý theo trạng thái hết hạn.
 
-### E7 – Kết quả thanh toán không khớp giao dịch
 
-Nếu BrewLite không tìm thấy giao dịch tương ứng, số tiền trong kết quả thanh toán không khớp, hoặc đơn không còn ở trạng thái PENDING, hệ thống không ghi nhận kết quả đó và không chuyển đơn sang PAID. BrewLite giữ nguyên trạng thái đơn hiện tại và thông báo giao dịch không thể xác nhận.
-
-### E8 – Webhook được gửi lại
+### E6 – Webhook được gửi lại
 
 Nếu BrewLite nhận lại webhook có cùng kết quả đã được xử lý, hệ thống ghi nhận đây là yêu cầu lặp và không thực hiện tác động nghiệp vụ lần thứ hai.
 
-### E9 – Khách hàng hủy đơn không còn ở PENDING
+### E7 – Khách hàng hủy đơn không còn ở PENDING
 
 Nếu đơn đã được thanh toán hoặc không còn trạng thái **PENDING**, BrewLite từ chối yêu cầu hủy theo luồng này và hiển thị trạng thái hiện tại.
 
@@ -118,8 +109,7 @@ Nếu đơn đã được thanh toán hoặc không còn trạng thái **PENDING
 | FR-06      | BrewLite gửi yêu cầu đến dịch vụ thanh toán mô phỏng và nhận kết quả.                                                                                     |
 | FR-07      | BrewLite lưu và thông báo kết quả thanh toán.                                                                                                             |
 | NFR-01     | Request lỗi hoặc quá thời gian phải trả mã HTTP và thông báo lỗi phù hợp.                                                                                 |
-| NFR-02     | Áp dụng xác thực và bảo vệ đơn hàng của khách; cập nhật tự động theo kết quả thanh toán hợp lệ không phải thao tác đổi trạng thái thủ công của nhân viên. |
-| NFR-05     | Giao diện luồng đặt và thanh toán hoạt động trên các trình duyệt được yêu cầu và hiển thị đúng ở chiều rộng 360 px.                                       |
+| NFR-02     | Áp dụng xác thực và bảo vệ đơn hàng của khách; cập nhật tự động theo kết quả thanh toán hợp lệ không phải thao tác đổi trạng thái thủ công của nhân viên. |                                       |
 
 NFR-03 về health check và NFR-04 về triển khai áp dụng ở cấp hệ thống, không phải các bước riêng của use case này.
 
@@ -134,11 +124,10 @@ NFR-03 về health check và NFR-04 về triển khai áp dụng ở cấp hệ 
 7. Nếu khách rời trang khi đơn còn **PENDING**, việc rời trang không tự hủy đơn hoặc xác nhận thanh toán.
 8. Webhook lặp không làm phát sinh việc xử lý nghiệp vụ lần thứ hai.
 9. Khách hàng không truy cập được dữ liệu đơn hàng của tài khoản khác.
-10. Giao diện luồng chính hiển thị đúng trên Chrome, Edge, Firefox, Safari bản mới và ở chiều rộng 360 px.
 
 ## 11. Ngoài phạm vi
 
 - Kết nối cổng thanh toán thật hoặc xử lý giao dịch tiền thật.
 - Nhân viên quầy tạo hoặc chỉnh sửa đơn trong use case này.
 - Các nghiệp vụ quản lý trạng thái đơn của nhân viên.
-- Áp dụng mã khuyến mãi và đổi điểm để giảm giá và tích điểm thưởng; xem xét trong phạm vi mở rộng.
+
