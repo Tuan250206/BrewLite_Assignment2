@@ -40,7 +40,7 @@ Khách hàng đã đăng nhập và tiến hành thanh toán từ giỏ hàng.
 
 | Bước | Luồng xử lý                                                                                      |
 | ---- | ------------------------------------------------------------------------------------------------ |
-| 1    | Khách hàng chọn **Đặt hàng/Thanh toán** từ giỏ hàng.                                             |
+| 1    | Khách hàng chọn tiến hành thanh toán từ giỏ hàng.                                             |
 | 2    | BrewLite hiển thị sản phẩm, tùy chọn, số lượng và tổng tiền dự kiến.                             |
 | 3    | Khách hàng kiểm tra thông tin và xác nhận tiếp tục.                                              |
 | 4    | BrewLite kiểm tra phiên đăng nhập, giỏ hàng, sản phẩm, tùy chọn và số lượng khả dụng.            |
