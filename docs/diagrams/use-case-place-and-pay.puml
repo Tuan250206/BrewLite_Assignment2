@@ -1,22 +1,26 @@
-@startuml
+@startuml use-case-place-and-pay
+left to right direction
+skinparam packageStyle rectangle
 
 actor "Khách hàng" as Customer
-actor "Dịch vụ thanh toán" as PaymentService
+actor "Mock payment gateway" as Payment <<system>>
 
-rectangle "Hệ thống BrewLite" {
-  usecase "Đặt và thanh toán\nđơn hàng" as UC_Main
-  usecase "Kiểm tra xác thực,\ngiỏ hàng và tồn kho" as UC_Validate
-  usecase "Tạo đơn hàng" as UC_CreateOrder
-  usecase "Xử lý thanh toán\nmô phỏng" as UC_Payment
-  usecase "Ghi nhận và hiển thị\nkết quả thanh toán" as UC_Result
+rectangle "BrewLite System" {
+  usecase "Đặt và thanh toán\nđơn hàng" as UC_Order
+  usecase "Xử lý thanh toán\nmô phỏng" as UC_Pay
+
+  usecase "Áp mã khuyến mãi\n(mở rộng)" as UC_Promo
+  usecase "Đổi điểm giảm giá\n(mở rộng)" as UC_Redeem
+  usecase "Tích điểm thưởng\n(mở rộng)" as UC_Earn
+  usecase "Hủy đơn\n(mở rộng)" as UC_Cancel
 }
 
-Customer -- UC_Main
-PaymentService -- UC_Payment
+Customer -- UC_Order
+UC_Pay -- Payment
 
-UC_Main ..> UC_Validate : <<include>>
-UC_Main ..> UC_CreateOrder : <<include>>
-UC_Main ..> UC_Payment : <<include>>
-UC_Payment ..> UC_Result : <<include>>
-
+UC_Order .> UC_Pay : <<include>>
+UC_Promo .> UC_Order : <<extend>>
+UC_Redeem .> UC_Order : <<extend>>
+UC_Earn .> UC_Pay : <<extend>>
+UC_Cancel .> UC_Order : <<extend>>
 @enduml
