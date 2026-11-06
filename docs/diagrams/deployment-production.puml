@@ -31,83 +31,92 @@ skinparam package {
   FontColor #000000
 }
 
-title BrewLite - Production Architecture (Render)
+title BrewLite - Triển khai môi trường phát triển, CI/CD và Production
 
-package "User Device" {
-  actor "Customer device\nBrowser" as Customer
+package "Thiết bị người dùng" {
+  actor "Khách hàng\nTrình duyệt / PWA" as Customer
 }
 
-package "Local Development" as Local {
-  node "Developer workstation" {
-    artifact "Git working tree\nfrontend/, backend/" as Source
-    node "Next.js app / browser client\nlocalhost:3000" as LocalWeb
+package "Môi trường phát triển cục bộ" as Local {
+  node "Máy trạm lập trình viên" {
+    artifact "Mã nguồn Git\napps/web, apps/api" as Source
+    node "Next.js dev server\nlocalhost:3000" as LocalWeb
+    node "Trình duyệt\nlocalhost:3000" as LocalBrowser
     node "NestJS API\nlocalhost:3001" as LocalApi
-    artifact "Local environment files\nfrontend/.env.local\nbackend/.env (untracked)" as LocalEnv
+    artifact "Tệp môi trường cục bộ\napps/web/.env.local\napps/api/.env (không commit)" as LocalEnv
   }
-  database "Local PostgreSQL (Docker Compose)\nlocalhost:5432\nvolume: postgres_data" as LocalDb
+  database "PostgreSQL cục bộ (Docker Compose)\nlocalhost:5432\nvolume: postgres_data" as LocalDb
   Source --> LocalWeb : npm run dev
   Source --> LocalApi : npm run start:dev
-  LocalWeb --> LocalApi : NEXT_PUBLIC_API_URL\nHTTP :3001 (browser request)
+  LocalBrowser --> LocalWeb : HTTP :3000
+  LocalBrowser --> LocalApi : NEXT_PUBLIC_API_URL\nHTTP :3001 (CORS)
   LocalApi --> LocalDb : PostgreSQL :5432
-  LocalEnv ..> LocalWeb : local config
-  LocalEnv ..> LocalApi : local config
+  LocalEnv ..> LocalWeb : cấu hình cục bộ
+  LocalEnv ..> LocalApi : cấu hình cục bộ
 }
 
-package "CI / Container Delivery" as CI {
-  node "GitHub repository" as GitHub
+package "CI / Phân phối container" as CI {
+  node "Kho mã nguồn GitHub" as GitHub
   node "GitHub Actions runner" as Actions {
-    artifact "Checks and build\nfrontend + backend images" as Build
+    artifact "Kiểm thử và build\nimage web + API\ntag / digest bất biến" as Build
   }
   node "GitHub Container Registry\n(GHCR)" as Registry {
-    artifact "BrewLite web image" as WebImage
-    artifact "BrewLite api image" as ApiImage
+    artifact "Image BrewLite web" as WebImage
+    artifact "Image BrewLite API" as ApiImage
   }
-  artifact "GitHub Actions secret\nRENDER_DEPLOY_HOOK_URL" as HookSecret
+  artifact "Secret GitHub Actions\nRENDER_DEPLOY_HOOK_URL" as HookSecret
   GitHub --> Actions : push / merge
-  Actions --> Registry : HTTPS :443\npush tagged images
-  Actions ..> HookSecret : read secret
+  Actions --> Registry : HTTPS :443\nđẩy image
+  Actions ..> HookSecret : đọc secret
 }
 
 package "Production (Render)" as Production {
-  node "Render platform" as Render {
-    node "Render edge / managed TLS\nHTTPS :443" as Edge
-    node "Next.js Web Service\nPublic HTTPS :443\nAccessible to users\nSSR / web assets" as Web
-    node "NestJS API Web Service\nPublic HTTPS API for browser client\nPrivate access possible with BFF\nRender port requires change from :3001\nGET /health not implemented" as API
-    database "Managed PostgreSQL\nPrivate network :5432\nOnly backend connects" as Postgres
-    artifact "Persistent Database Storage" as Storage
-    artifact "Backend environment\nDATABASE_URL\nJWT_SECRET\nMOCK_GATEWAY_WEBHOOK_SECRET\nPAYMENT_WEBHOOK_URL" as Secrets
-    artifact "Frontend environment\nNEXT_PUBLIC_API_URL\n(set at build time)" as WebConfig
-    artifact "Render logs\nservice and deploy logs" as Logs
+  node "Nền tảng Render" as Render {
+    node "Render edge / CDN / TLS được quản lý\nHTTPS công khai :443" as Edge
+    node "Next.js Web Service\nHTTPS công khai\nSSR / web assets\n0.0.0.0:$PORT" as Web
+    node "NestJS API Web Service\nHTTPS công khai cho trình duyệt\n0.0.0.0:$PORT" as API
+    node "Bộ kiểm tra sức khỏe Render" as HealthChecker
+    database "PostgreSQL được quản lý\nInternal URL / private network :5432\nAPI là ứng dụng kết nối" as Postgres
+    artifact "Lưu trữ cơ sở dữ liệu bền vững" as Storage
+    artifact "Biến môi trường Backend khi chạy\nDATABASE_URL (internal URL)\nJWT_SECRET\nMOCK_GATEWAY_WEBHOOK_SECRET\nPAYMENT_WEBHOOK_URL" as Secrets
+    artifact "Cấu hình build Frontend\nNEXT_PUBLIC_API_URL\ncông khai; đặt khi build image" as WebConfig
+    artifact "Thông tin xác thực registry Render\ncần có khi image GHCR là private" as RegistryCredential
+    artifact "Log service và log deploy Render" as Logs
 
-    Edge --> Web : HTTP :10000\nafter public TLS termination
-    Edge --> API : HTTP :10000\nafter public TLS termination
-    Postgres --> Storage : durable data
-    API --> Postgres : private TCP :5432\nonly database client
-    Secrets ..> API : injected at runtime
-    WebConfig ..> Web : set at build time
+    Edge --> Web : HTTP đến $PORT\nsau khi kết thúc TLS
+    Edge --> API : HTTP đến $PORT\nsau khi kết thúc TLS
+    HealthChecker --> API : HTTP GET /health
+    API --> Postgres : TCP nội bộ :5432
+    Postgres --> Storage : dữ liệu bền vững
+    Secrets ..> API : inject khi chạy
+    WebConfig ..> Web : đưa vào lúc build
+    RegistryCredential ..> Web : xác thực khi pull image
+    RegistryCredential ..> API : xác thực khi pull image
     Web ..> Logs : stdout / stderr
     API ..> Logs : stdout / stderr
   }
 }
 
 Customer --> Edge : HTTPS :443
-Registry --> Web : pull frontend image
-Registry --> API : pull backend image
-Actions ..> Render : HTTPS deploy hook\n(secret; trigger deploy)
-API ..> API : Render HTTP health check\nGET /health
+Registry --> Web : pull image theo digest/tag đã cấu hình
+Registry --> API : pull image theo digest/tag đã cấu hình
+Actions ..> Render : deploy hook / Render API\nkích hoạt deploy phiên bản image đã cấu hình
 
 note bottom of Local
-  Local services run on the developer workstation.
-  Never copy production secrets into local files or Git.
+  Các service cục bộ chạy trên máy của lập trình viên.
+  Không sao chép secret production vào tệp cục bộ hoặc Git.
 end note
 
 note bottom of Production
-  Keep Render services in the same region for private networking.
-  Current frontend calls the API from the browser, so API needs a public HTTPS
-  route. To make API private-only, add a Next.js server-side proxy/BFF first.
-  Database has no public route and accepts connections only from the API.
-  Render deployment is not configured; API port binding and GET /health
-  still need implementation.
-end note
+  Đặt các service và PostgreSQL cùng Render region, dùng internal URL.
+  Nếu không được phép truy cập công khai, phải tắt external access hoặc
+  giới hạn theo IP cho Render Postgres.
 
+  Vì trình duyệt gọi API trực tiếp, API phải là Web Service công khai.
+  Muốn API chỉ private, trước hết cần thêm proxy/BFF phía server Next.js.
+
+  NestJS phải bind 0.0.0.0 và process.env.PORT. Phải triển khai GET /health
+  trước khi cấu hình HTTP health-check path. Deploy hook chỉ deploy lại image
+  reference đã cấu hình; đổi digest/tag cần Render API hoặc mutable tag policy.
+end note
 @enduml
