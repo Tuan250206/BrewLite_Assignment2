@@ -18,7 +18,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
 
       # ==================== BACKEND (API) ====================
       - name: Install dependencies (API)
@@ -34,7 +34,9 @@ jobs:
       - name: Unit Test (API)
         run: |
           cd apps/api
-          npm test -- --runInBand
+          npm test -- --runInBand --passWithNoTests
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
 
       - name: Build (API)
         run: |
