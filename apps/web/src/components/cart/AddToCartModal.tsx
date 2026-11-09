@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check, ShoppingBag, ArrowLeft } from "lucide-react";
+import { Check, ArrowLeft } from "lucide-react";
 
 interface AddToCartModalProps {
   isOpen: boolean;

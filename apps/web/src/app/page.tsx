@@ -73,8 +73,7 @@ export default function Home() {
   const totalItems = useCartStore((state) => state.totalItems);
   const totalPrice = useCartStore((state) => state.totalPrice);
   const addItem = useCartStore((state) => state.addItem);
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ id?: string; email?: string } | null>(null);  const [showAuthModal, setShowAuthModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [outOfStockMessage, setOutOfStockMessage] = useState<string | null>(null);
   const [paymentFailedOrderId, setPaymentFailedOrderId] = useState<string | null>(null);
@@ -92,8 +91,8 @@ export default function Home() {
     setProductsError(null);
   };
 
-  useEffect(() => {
-    setHydrated(true);
+    useEffect(() => {
+    queueMicrotask(() => setHydrated(true));
   }, []);
 
   useEffect(() => {
@@ -113,11 +112,13 @@ export default function Home() {
     const token = localStorage.getItem('accessToken');
     const userStr = localStorage.getItem('currentUser');
     if (token && userStr) {
-      try {
-        setCurrentUser(JSON.parse(userStr));
-      } catch {
-        setCurrentUser(null);
-      }
+      queueMicrotask(() => {
+        try {
+          setCurrentUser(JSON.parse(userStr));
+        } catch {
+          setCurrentUser(null);
+        }
+      });
     }
   }, []);
 
@@ -169,10 +170,8 @@ export default function Home() {
       setPendingOrderId(String(orderData.id));
 
       setShowConfirmModal(true);
-    } catch (err: any) {
-      const message = Array.isArray(err.message)
-        ? err.message.join(', ')
-        : String(err.message ?? '');
+      } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
 
       if (/stock|tồn kho|hết hàng|hết sản phẩm/i.test(message)) {
         setOutOfStockMessage(message);
@@ -241,10 +240,8 @@ export default function Home() {
         orderId: pendingOrderId,
         mockEmail: paymentData.mockEmail,
       });
-    } catch (err: any) {
-      const message = Array.isArray(err.message)
-        ? err.message.join(', ')
-        : String(err.message ?? '');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
       if (/stock|tồn kho|hết hàng|hết sản phẩm/i.test(message)) {
         setShowConfirmModal(false);
         setPendingOrderId(null);
