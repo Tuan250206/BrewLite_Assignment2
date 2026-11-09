@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useCartStore } from "@/stores/cartStore";
 import AddToCartModal from "@/components/cart/AddToCartModal";
@@ -29,7 +30,13 @@ export default function ProductDetailPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   
   // State dữ liệu sản phẩm từ Backend
-  const [product, setProduct] = useState<any>(null);
+    const [product, setProduct] = useState<{
+    id: string | number;
+    name: string;
+    price: number;
+    imageUrl?: string | null;
+    image?: string | null;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   // State lựa chọn của người dùng
@@ -50,15 +57,9 @@ export default function ProductDetailPage() {
         setProduct(data);
         setLoading(false);
       })
-      .catch((err) => {
+            .catch((err) => {
         console.error('Lỗi khi fetch sản phẩm:', err);
-        // Fallback dữ liệu mẫu nếu backend chưa trả dữ liệu
-        setProduct({
-          id: productId,
-          name: `Trà Sữa BrewLite #${productId}`,
-          price: 45000,
-          image: null,
-        });
+        setProduct(null);
         setLoading(false);
       });
   }, [productId]);
@@ -113,6 +114,18 @@ export default function ProductDetailPage() {
       </div>
     );
   }
+  if (!product) {
+   return (
+     <div className="container mx-auto p-12 text-center">
+       <p className="text-lg font-semibold text-red-600 mb-4">
+         Không tìm thấy sản phẩm yêu cầu (404).
+       </p>
+       <Link href="/" className="text-amber-700 underline font-medium">
+         ← Quay lại thực đơn
+       </Link>
+     </div>
+   );
+ }
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
@@ -139,11 +152,13 @@ export default function ProductDetailPage() {
         {/* Khung ảnh sản phẩm */}
         <div className="bg-amber-50 rounded-xl h-80 flex flex-col items-center justify-center border border-amber-200 overflow-hidden relative">
           {product?.imageUrl || product?.image ? (
-            <img
-              src={getProductImageUrl(product.imageUrl || product.image)}
-              alt={product.name}
-              className="w-full h-full object-cover"
-            />
+                      <Image
+            src={getProductImageUrl(product.imageUrl || product.image)}
+            alt={product.name}
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="w-full h-full object-cover"
+          />
           ) : (
             <>
               <span className="text-5xl mb-3">🧋</span>
