@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { User, ChevronDown, Package, LogOut } from 'lucide-react';
 
 interface UserNavProps {
-  currentUser: any;
+  currentUser: { email?: string } | null;
   onOpenAuthModal: () => void;
   onLogout: () => void;
 }
