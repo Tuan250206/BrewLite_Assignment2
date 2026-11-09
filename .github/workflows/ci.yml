@@ -1,0 +1,60 @@
+name: Continuous Integration (CI)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  ci-pipeline:
+    name: Install -> Lint -> Unit Test -> Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # ==================== BACKEND (API) ====================
+      - name: Install dependencies (API)
+        run: |
+          cd apps/api
+          npm ci
+
+      - name: Lint (API)
+        run: |
+          cd apps/api
+          npm run lint
+
+      - name: Unit Test (API)
+        run: |
+          cd apps/api
+          npm test -- --runInBand --passWithNoTests
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+
+      - name: Build (API)
+        run: |
+          cd apps/api
+          npm run build
+
+      # ==================== FRONTEND (WEB) ====================
+      - name: Install dependencies (Web)
+        run: |
+          cd apps/web
+          npm ci
+
+      - name: Lint (Web)
+        run: |
+          cd apps/web
+          npm run lint
+
+      - name: Build (Web)
+        run: |
+          cd apps/web
+          npm run build

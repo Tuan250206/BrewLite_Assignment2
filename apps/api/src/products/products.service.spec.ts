@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma.service';
 import { ProductsService } from './products.service';
+import { jest } from '@jest/globals';
 
 describe('ProductsService', () => {
   let productsService: ProductsService;
