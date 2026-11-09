@@ -6,7 +6,7 @@ import { Eye, EyeOff } from 'lucide-react';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (token: string, user: any) => void;
+  onSuccess: (token: string, user: { id?: string; email?: string }) => void;
 }
 
 export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
@@ -63,11 +63,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         setPassword('');
         setConfirmPassword('');
       }
-    } catch (err: any) {
-      setError(Array.isArray(err.message) ? err.message.join(', ') : err.message);
-    } finally {
-      setLoading(false);
-    }
+      } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Đã xảy ra lỗi';
+      setError(msg);
+      } finally {
+        setLoading(false);
+      }
   };
 
   return (
