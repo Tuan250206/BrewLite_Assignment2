@@ -2,8 +2,11 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { existsSync } from 'node:fs';
+import { loadEnvFile } from 'node:process';
 
 async function bootstrap() {
+  if (existsSync('.env')) loadEnvFile('.env');
   const app = await NestFactory.create(AppModule);
   
   // Bật CORS để Frontend Next.js gọi API không bị chặn
