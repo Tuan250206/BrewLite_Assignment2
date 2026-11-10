@@ -1,43 +1,39 @@
-@startuml use-case-overview
+@startuml
 left to right direction
 skinparam packageStyle rectangle
 
-actor "Khách hàng" as Customer
-actor "Nhân viên quầy\n(ngoài MVP)" as Staff
-actor "Mock payment gateway" as Payment <<system>>
+actor "Khách hàng" as KH
+actor "Nhân viên quầy" as NV
+actor "Mock payment gateway" as PG
 
 rectangle "BrewLite System" {
-  usecase "Xem menu" as UC_Menu
-  usecase "Xem chi tiết sản phẩm,\nchọn size và topping" as UC_Detail
-  usecase "Quản lý giỏ hàng" as UC_Cart
-  usecase "Đăng ký" as UC_Register
-  usecase "Đăng nhập" as UC_Login
-
-  usecase "Đặt và thanh toán\nđơn hàng" as UC_Order
-  usecase "Xử lý thanh toán\nmô phỏng" as UC_Pay
-  usecase "Áp mã khuyến mãi" as UC_Promo
-
-  usecase "Xem lịch sử và\ntheo dõi đơn" as UC_History
-  usecase "Hủy đơn\n(mở rộng)" as UC_Cancel
-  usecase "Cập nhật trạng thái đơn\n(mở rộng)" as UC_Status
+    usecase "Xem menu" as UC1
+    usecase "Xem chi tiết sản phẩm,\nchọn size và topping" as UC2
+    usecase "Quản lý giỏ hàng" as UC3
+    usecase "Đăng ký" as UC4
+    usecase "Đặt và thanh toán\nđơn hàng" as UC5
+    usecase "Xem lịch sử và theo dõi\nđơn hàng" as UC6
+    usecase "Đăng nhập" as UC7
+    usecase "Hủy đơn hàng" as UC8
+    usecase "Cập nhật trạng thái\nđơn hàng" as UC9
+    usecase "Xử lý thanh toán\nmô phỏng" as UC10
 }
 
-Customer -- UC_Menu
-Customer -- UC_Detail
-Customer -- UC_Cart
-Customer -- UC_Register
-Customer -- UC_Login
-Customer -- UC_Order
-Customer -- UC_History
-Customer -- UC_Cancel
+KH -- UC1
+KH -- UC2
+KH -- UC3
+KH -- UC4
+KH -- UC5
+KH -- UC6
+KH -- UC7
+KH -- UC8
 
-Staff -- UC_Login
-Staff -- UC_Cancel
-Staff -- UC_Status
+UC5 ..> UC10 : <<include>>
 
-UC_Pay -- Payment
+PG -- UC10
 
-UC_Order .> UC_Pay   : <<include>>
-UC_Order .> UC_Login : <<include>>
-UC_Promo .> UC_Order : <<extend>>
+NV -- UC7
+NV -- UC8
+NV -- UC9
+
 @enduml
