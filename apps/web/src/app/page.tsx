@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Coffee, Plus, ShoppingBag, Loader2, Minus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { getProductImageUrl } from "@/lib/product-image";
@@ -13,6 +13,13 @@ import OrderSuccessModal from '@/components/cart/OrderSuccessModal';
 import OutOfStockModal from '@/components/cart/OutOfStockModal';
 import PaymentFailedModal from '@/components/cart/PaymentFailedModal';
 import PaymentQrModal from '@/components/cart/PaymentQrModal';
+import {
+  isOrderPaymentMockEnabled,
+  orderPaymentFetch,
+  setCheckoutMockSnapshot,
+} from '@/lib/order-payment-api';
+
+const EXIT_CANCEL_NOTICE_KEY = 'brewlite-pending-cancel-notice';
 
 interface BackendProduct {
   id: string | number;
@@ -52,6 +59,21 @@ const formatPrice = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+function getCancellationStatus(data: unknown): string | null {
+  if (typeof data !== 'object' || data === null) return null;
+  if ('status' in data && typeof data.status === 'string') return data.status;
+  if (
+    'order' in data &&
+    typeof data.order === 'object' &&
+    data.order !== null &&
+    'status' in data.order &&
+    typeof data.order.status === 'string'
+  ) {
+    return data.order.status;
+  }
+  return null;
+}
+
 async function fetchProducts(): Promise<BackendProduct[]> {
   const response = await fetch("http://localhost:3001/products");
   if (!response.ok) {
@@ -84,6 +106,10 @@ export default function Home() {
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   const [paymentGatewaySession, setPaymentGatewaySession] = useState<PaymentGatewaySession | null>(null);
+  const [pendingCancelError, setPendingCancelError] = useState<string | null>(null);
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false);
+  const [exitCancelNotice, setExitCancelNotice] = useState<string | null>(null);
+  const cancellationInFlightRef = useRef(false);
   
   const loadProducts = async () => {
     const data = await fetchProducts();
@@ -122,6 +148,18 @@ export default function Home() {
     }
   }, []);
 
+  useEffect(() => {
+    const storedNotice = window.localStorage.getItem(EXIT_CANCEL_NOTICE_KEY);
+    if (!storedNotice) return;
+
+    queueMicrotask(() => {
+      setExitCancelNotice(
+        `Đã gửi yêu cầu hủy đơn ${storedNotice} khi rời luồng thanh toán, nhưng chưa nhận được xác nhận từ backend. Hãy kiểm tra Lịch sử đơn hàng.`,
+      );
+      window.localStorage.removeItem(EXIT_CANCEL_NOTICE_KEY);
+    });
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('currentUser');
@@ -152,7 +190,17 @@ export default function Home() {
         })),
       };
 
-      const orderRes = await fetch('http://localhost:3001/orders', {
+      setCheckoutMockSnapshot(
+        items.map((item) => ({
+          productId: item.productId,
+          name: item.name,
+          size: item.size,
+          topping: item.topping,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+        })),
+      );
+      const orderRes = await orderPaymentFetch('http://localhost:3001/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -167,6 +215,7 @@ export default function Home() {
       }
 
       setCheckoutModalKey((key) => key + 1);
+      setPendingCancelError(null);
       setPendingOrderId(String(orderData.id));
 
       setShowConfirmModal(true);
@@ -202,7 +251,7 @@ export default function Home() {
     setIsCheckingOut(true);
     try {
       // 2. Gửi yêu cầu khởi tạo thanh toán sang cổng thanh toán thử nghiệm.
-      const paymentRes = await fetch('http://localhost:3001/payments', {
+      const paymentRes = await orderPaymentFetch('http://localhost:3001/payments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -227,6 +276,7 @@ export default function Home() {
 
       setShowConfirmModal(false);
       if (paymentData.status === 'PAYMENT_FAILED') {
+        setPendingCancelError(null);
         setPendingOrderId(null);
         setPaymentFailedOrderId(pendingOrderId);
         return;
@@ -272,7 +322,7 @@ export default function Home() {
 
     setIsUpdatingFailedOrder(true);
     try {
-      const response = await fetch(
+      const response = await orderPaymentFetch(
         `http://localhost:3001/orders/${paymentFailedOrderId}/${action}`,
         {
           method: 'PATCH',
@@ -288,6 +338,7 @@ export default function Home() {
       }
 
       if (action === 'retry-payment') {
+        setPendingCancelError(null);
         setPendingOrderId(paymentFailedOrderId);
         setCheckoutModalKey((key) => key + 1);
         setPaymentFailedOrderId(null);
@@ -317,35 +368,114 @@ export default function Home() {
     }
   };
   const handleCancelPendingOrder = async () => {
-    if (pendingOrderId) {
-      try {
-        const token = localStorage.getItem('accessToken');
-        if (token) {
-          await fetch(`http://localhost:3001/orders/${pendingOrderId}/cancel`, {
-            method: 'PATCH',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-        }
-      } catch (err) {
-        console.error('Lỗi khi hủy đơn hàng chờ:', err);
-      } finally {
-        // Đặt lại state sau khi hủy
-        setPendingOrderId(null);
-      }
+    if (!pendingOrderId) {
+      setShowConfirmModal(false);
+      setPaymentGatewaySession(null);
+      return;
     }
-    setShowConfirmModal(false);
+
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      setPendingCancelError(
+        `Chưa xác nhận hủy đơn ${pendingOrderId}: không tìm thấy phiên đăng nhập.`,
+      );
+      return;
+    }
+
+    cancellationInFlightRef.current = true;
+    setIsCancellingOrder(true);
+    setPendingCancelError(null);
+    try {
+      const response = await orderPaymentFetch(
+        `http://localhost:3001/orders/${encodeURIComponent(pendingOrderId)}/cancel`,
+        {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      const data: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message =
+          typeof data === 'object' &&
+          data !== null &&
+          'message' in data &&
+          typeof data.message === 'string'
+            ? data.message
+            : `Backend từ chối yêu cầu (HTTP ${response.status}).`;
+        throw new Error(message);
+      }
+      if (getCancellationStatus(data) !== 'CANCELLED') {
+        throw new Error('Backend chưa xác nhận trạng thái CANCELLED.');
+      }
+
+      window.localStorage.removeItem(EXIT_CANCEL_NOTICE_KEY);
+      setPendingCancelError(null);
+      setExitCancelNotice(`Backend đã xác nhận hủy đơn ${pendingOrderId}.`);
+      setPendingOrderId(null);
+      setShowConfirmModal(false);
+      setPaymentGatewaySession(null);
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message : 'Không nhận được phản hồi hợp lệ.';
+      setPendingCancelError(
+        `Chưa xác nhận hủy đơn ${pendingOrderId}. ${reason} Đơn có thể vẫn đang PENDING; hãy kiểm tra trạng thái trước khi tiếp tục.`,
+      );
+    } finally {
+      cancellationInFlightRef.current = false;
+      setIsCancellingOrder(false);
+    }
   };
 
   const handleClosePaymentQr = () => {
-    setPaymentGatewaySession(null);
     void handleCancelPendingOrder();
   };
+
+  useEffect(() => {
+    if (!pendingOrderId || (!showConfirmModal && !paymentGatewaySession)) return;
+
+    const handlePageHide = () => {
+      if (cancellationInFlightRef.current) return;
+
+      const token = window.localStorage.getItem('accessToken');
+      if (!token) return;
+
+      cancellationInFlightRef.current = true;
+      window.localStorage.setItem(EXIT_CANCEL_NOTICE_KEY, pendingOrderId);
+      void orderPaymentFetch(
+        `http://localhost:3001/orders/${encodeURIComponent(pendingOrderId)}/cancel`,
+        {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}` },
+          keepalive: true,
+        },
+      )
+        .then(async (response) => {
+          if (!response.ok) return;
+          const result: unknown = await response.json().catch(() => null);
+          if (getCancellationStatus(result) === 'CANCELLED') {
+            window.localStorage.removeItem(EXIT_CANCEL_NOTICE_KEY);
+          }
+        })
+        .catch((error: unknown) => {
+          console.error('Không thể gửi yêu cầu hủy khi rời trang:', error);
+        });
+    };
+
+    window.addEventListener('pagehide', handlePageHide);
+    return () => window.removeEventListener('pagehide', handlePageHide);
+  }, [pendingOrderId, paymentGatewaySession, showConfirmModal]);
 
 
   return (
     <div className="min-h-screen bg-[#f7f2eb] text-stone-900">
+      {exitCancelNotice && (
+        <p
+          className="fixed bottom-4 left-1/2 z-[80] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 shadow-lg"
+          role="status"
+        >
+          {exitCancelNotice}
+        </p>
+      )}
       <header className="sticky top-0 z-20 border-b border-stone-200/80 bg-[#f7f2eb]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
@@ -605,6 +735,7 @@ export default function Home() {
       />
       <OrderSuccessModal
         orderId={successOrderId}
+        isMock={isOrderPaymentMockEnabled()}
         onClose={() => setSuccessOrderId(null)}
       />
       <CheckoutConfirmModal
@@ -615,6 +746,8 @@ export default function Home() {
         items={cartList}
         totalPrice={subtotal}
         loading={isCheckingOut}
+        cancelError={pendingCancelError}
+        cancelling={isCancellingOrder}
       />
       <OutOfStockModal
         isOpen={outOfStockMessage !== null}
@@ -624,12 +757,16 @@ export default function Home() {
       <PaymentFailedModal
         orderId={paymentFailedOrderId}
         loading={isUpdatingFailedOrder}
+        isMock={isOrderPaymentMockEnabled()}
         onRetry={() => updateFailedOrder('retry-payment')}
         onCancel={() => updateFailedOrder('cancel')}
       />
       <PaymentQrModal
         key={paymentGatewaySession?.transactionId ?? 'no-payment-session'}
         session={paymentGatewaySession}
+        isMock={isOrderPaymentMockEnabled()}
+        cancelError={pendingCancelError}
+        cancelling={isCancellingOrder}
         onClose={handleClosePaymentQr}
         onConfirmed={(orderId) => {
           clearCart();
