@@ -1,5 +1,5 @@
-import * as crypto from 'node:crypto';
 import {
+  BadGatewayException,
   BadRequestException,
   ConflictException,
   Injectable,
@@ -15,11 +15,43 @@ import { PrismaService } from '../prisma.service.js';
 import { assertTransition } from '../orders/order-state.js';
 import { CreatePaymentDto } from './dto/create-payment.dto.js';
 
+const GATEWAY_URL = `http://localhost:${process.env.PORT ?? 3001}/mock-gateway/pay`;
+
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
   ) {}
+
+  private async callMockGateway(dto: CreatePaymentDto, amount: number, idempotencyKey: string): Promise<PaymentStatus> {
+    try {
+      const response = await fetch(GATEWAY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: dto.orderId,
+          amount,
+          method: dto.method,
+          idempotencyKey,
+          simulateFail: dto.simulateFail,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new BadGatewayException(
+          `Mock gateway trả về lỗi ${response.status}`,
+        );
+      }
+
+      const data = (await response.json()) as { status: PaymentStatus };
+      return data.status;
+    } catch (error) {
+      if (error instanceof BadGatewayException) throw error;
+      throw new BadGatewayException(
+        'Không thể kết nối đến mock payment gateway',
+      );
+    }
+  }
 
   async create(
     userId: string,
@@ -71,6 +103,9 @@ export class PaymentsService {
               id: dto.orderId,
               userId,
             },
+            include: {
+              orderItems: true,
+            },
           });
 
           if (!order) {
@@ -79,24 +114,74 @@ export class PaymentsService {
             );
           }
 
-          if (order.status !== OrderStatus.PENDING) {
+          if (
+            order.status !== OrderStatus.PENDING &&
+            order.status !== OrderStatus.PAYMENT_FAILED
+          ) {
             throw new ConflictException(
               `Không thể thanh toán đơn ở trạng thái ${order.status}`,
             );
           }
 
-          const paymentStatus = dto.simulateFail
-            ? PaymentStatus.PAYMENT_FAILED
-            : PaymentStatus.PAID;
+          if (order.status === OrderStatus.PAYMENT_FAILED) {
+            assertTransition(
+              order.status,
+              OrderStatus.PENDING,
+            );
+          }
 
-          const targetOrderStatus = dto.simulateFail
-            ? OrderStatus.PAYMENT_FAILED
-            : OrderStatus.PAID;
+          const paymentStatus = await this.callMockGateway(
+            dto,
+            order.total.toNumber(),
+            normalizedKey,
+          );
+
+          const targetOrderStatus =
+            paymentStatus === PaymentStatus.SUCCESS
+              ? OrderStatus.PAID
+              : OrderStatus.PAYMENT_FAILED;
 
           assertTransition(
-            order.status,
+            OrderStatus.PENDING,
             targetOrderStatus,
           );
+
+          if (paymentStatus === PaymentStatus.SUCCESS) {
+            const quantityByProductId = new Map<string, number>();
+
+            for (const item of order.orderItems) {
+              quantityByProductId.set(
+                item.productId,
+                (quantityByProductId.get(item.productId) ?? 0) +
+                  item.qty,
+              );
+            }
+
+            for (const [
+              productId,
+              requestedQty,
+            ] of quantityByProductId) {
+              const result = await tx.product.updateMany({
+                where: {
+                  id: productId,
+                  stock: {
+                    gte: requestedQty,
+                  },
+                },
+                data: {
+                  stock: {
+                    decrement: requestedQty,
+                  },
+                },
+              });
+
+              if (result.count !== 1) {
+                throw new ConflictException(
+                  'Sản phẩm không đủ tồn kho để hoàn tất thanh toán',
+                );
+              }
+            }
+          }
 
           const payment = await tx.payment.create({
             data: {
@@ -108,8 +193,6 @@ export class PaymentsService {
                   ? PaymentMethod.WALLET
                   : PaymentMethod.CARD,
               status: paymentStatus,
-              providerTransactionId:
-                `mock_${crypto.randomUUID()}`,
             },
             include: {
               order: true,
@@ -201,8 +284,6 @@ export class PaymentsService {
       paymentId: latestPayment?.id ?? null,
       amount: latestPayment?.amount.toString() ?? null,
       method: latestPayment?.method ?? null,
-      providerTransactionId:
-        latestPayment?.providerTransactionId ?? null,
     };
   }
 
@@ -212,17 +293,14 @@ export class PaymentsService {
     amount: Prisma.Decimal;
     method: PaymentMethod;
     status: PaymentStatus;
-    providerTransactionId: string | null;
   }) {
     return {
-      success: payment.status === PaymentStatus.PAID,
+      success: payment.status === PaymentStatus.SUCCESS,
       orderId: payment.orderId,
       paymentId: payment.id,
       status: payment.status,
       amount: payment.amount.toString(),
       method: payment.method,
-      providerTransactionId:
-        payment.providerTransactionId,
     };
   }
 }

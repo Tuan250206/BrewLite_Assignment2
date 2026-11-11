@@ -3,12 +3,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { jest } from '@jest/globals';
 import { PrismaService } from '../prisma.service.js';
 import { HealthService } from './health.service.js';
+import { jest } from '@jest/globals';
 
 describe('HealthService', () => {
   let healthService: HealthService;
 
   const mockPrismaService = {
-    $queryRaw: jest.fn(),
+    $queryRaw: jest.fn<() => Promise<unknown>>(),
   };
 
   beforeEach(async () => {

@@ -27,9 +27,8 @@ enum PaymentMethod {
 }
 
 enum PaymentStatus {
-  PENDING
-  PAID
-  PAYMENT_FAILED
+  SUCCESS
+  FAILED
 }
 
 // ==========================================
@@ -120,19 +119,18 @@ model OrderItem {
 }
 
 model Payment {
-  id                    String        @id @default(uuid())
-  orderId               String
-  idempotencyKey        String        @unique
-  amount                Decimal       @db.Decimal(12, 2)
-  method                PaymentMethod
-  status                PaymentStatus @default(PENDING)
-  providerTransactionId String?
+  id             String        @id @default(uuid())
+  orderId        String
+  idempotencyKey String        @unique
+  amount         Decimal       @db.Decimal(12, 2)
+  method         PaymentMethod
+  status         PaymentStatus
 
+  // Relations
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 
-  @@index([orderId])
   @@map("payments")
 }
 
