@@ -4,9 +4,12 @@ import { AppService } from './app.service.js';
 import { PrismaModule } from './prisma.module.js';
 import { ProductsModule } from './products/products.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { OrdersModule } from './orders/orders.module.js';
+import { PaymentsModule } from './payments/payments.module.js';
+import { HealthModule } from './health/health.module.js';
 
 @Module({
-  imports: [PrismaModule, ProductsModule, AuthModule],
+  imports: [PrismaModule, ProductsModule, AuthModule, OrdersModule, PaymentsModule, HealthModule],
   controllers: [AppController],
   providers: [AppService],
 })
