@@ -1,18 +1,18 @@
 @startuml
-title Class Diagram
+title Class Diagram - Domain Model (BrewLite)
 
-' ====== Style giong hinh mau: nen trang, vien den, khong bo goc, khong bong ======
 skinparam backgroundColor White
 skinparam shadowing false
 skinparam roundCorner 0
 skinparam linetype ortho
 skinparam defaultFontName Arial
-skinparam defaultFontSize 13
+skinparam defaultFontSize 12
 skinparam classFontStyle bold
 skinparam classAttributeFontStyle plain
 skinparam classAttributeIconSize 0
-skinparam nodesep 90
-skinparam ranksep 80
+skinparam nodesep 60
+skinparam ranksep 60
+
 skinparam class {
   BackgroundColor White
   BorderColor Black
@@ -22,163 +22,126 @@ skinparam class {
   FontColor Black
   AttributeFontColor Black
   StereotypeFontColor Black
-  StereotypeFontSize 12
+  StereotypeFontSize 11
 }
 skinparam stereotypeCBackgroundColor White
 hide circle
 hide empty members
 
-' ===================== ENUMERATIONS =====================
-class UserRole <<enumeration>> #E3F4F4 {
-  CUSTOMER
-  STAFF
-}
 class OrderStatus <<enumeration>> #E3F4F4 {
   PENDING
   PAID
+  PAYMENT_FAILED
   PREPARING
   READY
   COMPLETED
-  PAYMENT_FAILED
   CANCELLED
 }
+
+class PaymentMethod <<enumeration>> #E3F4F4 {
+  WALLET
+  CARD
+}
+
 class PaymentStatus <<enumeration>> #E3F4F4 {
-  PENDING
-  PAID
-  PAYMENT_FAILED
-}
-class LoyaltyTransactionType <<enumeration>> #E3F4F4 {
-  EARN
-  REDEEM
-  REDEEM_REFUND
-  EARN_REVERSAL
-}
-class LoyaltyTransactionStatus <<enumeration>> #E3F4F4 {
-  RESERVED
-  POSTED
-  RELEASED
-}
-
-' ===================== CLASSES =====================
-class User {
-  - id: String
-  - email: String
-  - passwordHash: String
-  - role: UserRole
-  - loyaltyPoints: Int
-  - createdAt: DateTime
-  --
-  + register(email: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>password: String): { accessToken: String, user: User }
-  + login(email: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>password: String): { accessToken: String, user: User }
-  + getLoyaltyPoints(userId: String): { loyaltyPoints: Int }
-}
-
-class Order {
-  - id: String
-  - status: OrderStatus
-  - total: Float
-  - promotionCode: String
-  - promoDiscount: Float
-  - pointsRedeemed: Int
-  - createdAt: DateTime
-  --
-  + create(userId: String, dto: CreateOrderDto): Order
-  + cancel(userId: String, orderId: String): Order
-  + updateStatus(orderId: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>status: OrderStatus): Order
-  + validatePointsRedemption(pointsRedeemed: Int,\n<U+00A0><U+00A0><U+00A0><U+00A0>totalAfterPromotion: Float): void
-  + calculateDiscount(subtotal: Float,\n<U+00A0><U+00A0><U+00A0><U+00A0>discountPercent: Float): Float
-}
-
-class OrderItem {
-  - id: String
-  - size: String
-  - topping: String
-  - qty: Int
-  - lineTotal: Float
-  --
-  + computeUnitPrice(basePrice: Float, size: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>toppings: String[]): Float
-  + computeLineTotal(unitPrice: Float, qty: Int): Float
+  SUCCESS
+  FAILED
 }
 
 class Product {
-  - id: String
-  - name: String
-  - price: Float
-  - imageUrl: String
-  - stock: Int
+  + String id
+  + String name
+  + Decimal price
+  + String imageUrl
+  + Integer stock
   --
-  + validateStock(productId: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>requestedQty: Int): void
-  + reserveStock(items: StockRequest[]): { reservedItems: StockRequest[] }
+  + isAvailable(quantity: Integer): Boolean
+  + decreaseStock(quantity: Integer): void
+  + increaseStock(quantity: Integer): void
+}
+
+class OrderItem {
+  + String id
+  + String orderId
+  + String productId
+  + String size
+  + String topping
+  + Integer qty
+  + Decimal lineTotal
+  --
+  + calculateUnitPrice(): Decimal
+  + calculateLineTotal(): Decimal
+  + updateQuantity(quantity: Integer): void
 }
 
 class Promotion {
-  - id: String
-  - code: String
-  - description: String
-  - discountPercent: Float
-  - minimumOrderAmount: Int
-  - startsAt: DateTime
-  - expiresAt: DateTime
-  - isActive: Boolean
-  - createdAt: DateTime
+  + String id
+  + String code
+  + String description
+  + Decimal discountPercent
+  + Boolean isActive
   --
-  + create(dto: CreatePromotionDto): Promotion
-  + findActive(now: DateTime): Promotion[]
-  + validateMinimumOrderAmount(subtotal: Float,\n<U+00A0><U+00A0><U+00A0><U+00A0>promotion: Promotion): void
+  + isValid(now: DateTime): Boolean
+  + calculateDiscount(total: Decimal): Decimal
+}
+
+class Order {
+  + String id
+  + String userId
+  + OrderStatus status
+  + Decimal total
+  + String promotionCode
+  + DateTime createdAt
+  --
+  + addItem(item: OrderItem): void
+  + calculateTotal(): Decimal
+  + changeStatus(status: OrderStatus): void
+}
+
+class User {
+  + String id
+  + String email
+  + String passwordHash
+  + Integer loyaltyPoints
+  --
+  + addLoyaltyPoints(points: Integer): void
+  + redeemLoyaltyPoints(points: Integer): Boolean
+  + hasEnoughLoyaltyPoints(points: Integer): Boolean
 }
 
 class Payment {
-  - id: String
-  - idempotencyKey: String
-  - amount: Float
-  - method: String
-  - status: PaymentStatus
-  - confirmationTokenHash: String
-  - expiresAt: DateTime
-  - providerTransactionId: String
-  - gatewayPaymentUrl: String
-  - testAccount: String
-  - testCredentialHash: String
-  - createdAt: DateTime
+  + String id
+  + String orderId
+  + String idempotencyKey
+  + Decimal amount
+  + PaymentMethod method
+  + PaymentStatus status
   --
-  + processPayment(userId: String, dto: CreatePaymentDto,\n<U+00A0><U+00A0><U+00A0><U+00A0>idempotencyKey: String): PaymentProcessResult
-  + handleGatewayWebhook(payload: WebhookPayload,\n<U+00A0><U+00A0><U+00A0><U+00A0>signature: String): WebhookResult
-  + verifyWebhookSignature(payload: WebhookPayload,\n<U+00A0><U+00A0><U+00A0><U+00A0>signature: String): Boolean
-  + getOrderPaymentStatus(userId: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>orderId: String): PaymentStatusResult
+  + initializePayment(): Payment
+  + markAsPaid(): void
+  + markAsFailed(): void
 }
 
 class LoyaltyTransaction {
-  - id: String
-  - type: LoyaltyTransactionType
-  - status: LoyaltyTransactionStatus
-  - pointsDelta: Int
-  - idempotencyKey: String
-  - createdAt: DateTime
+  + String id
+  + String userId
+  + String orderId
+  + Integer pointsDelta
+  + DateTime createdAt
   --
-  + createRedemptionReservation(userId: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>orderId: String, pointsDelta: Int): LoyaltyTransaction
-  + releaseReservation(transactionId: String): LoyaltyTransaction
-  + createEarnTransaction(userId: String, orderId: String,\n<U+00A0><U+00A0><U+00A0><U+00A0>amount: Float): LoyaltyTransaction
+  + createEarn(userId: String, points: Integer): LoyaltyTransaction
+  + createRedeem(userId: String, points: Integer): LoyaltyTransaction
 }
 
-' ===================== RELATIONSHIPS =====================
-' Association (co huong doc nhu "wrote", "borrowed" trong hinh mau)
-User "1" -right- "0..*" Order : places >
-Order "0..*" -right- "0..1" Promotion : applies >
-Order "1" -up- "0..*" Payment : paid by >
-User "1" -down- "0..*" LoyaltyTransaction : owns >
-LoyaltyTransaction "0..*" -[norank]right- "0..1" Order : relates to >
-
-' Composition (hinh thoi dac): Order mat thi OrderItem mat theo
-Order "1" *-down- "1..*" OrderItem : contains >
-
-' Association OrderItem -> Product
-OrderItem "0..*" -down- "1" Product : refers to >
-
-' Dependency <<use>> toi enumeration (net dut)
-User ..left..> UserRole : <<use>>
-Payment ..right..> PaymentStatus : <<use>>
-Order ..> OrderStatus : <<use>>
-LoyaltyTransaction ..left..> LoyaltyTransactionType : <<use>>
-LoyaltyTransaction ..left..> LoyaltyTransactionStatus : <<use>>
+Product "1" -right- "0..*" OrderItem : referenced by ▶
+Promotion "0..1" .right.> "0..*" Order : applied to ▶
+Order "1" *-up- "1..*" OrderItem : contains ▼
+Order "1" .right.> OrderStatus : <<use>>\nstatus
+User "1" -right- "0..*" Order : places ▶
+Order "1" .right.> "0..*" Payment : payment attempts ▶
+Payment .right.> PaymentMethod : <<use>>\nmethod
+Payment .down.> PaymentStatus : <<use>>\nstatus
+Order "1" -down- "0..*" LoyaltyTransaction : related to ▶
+User "1" -down- "0..*" LoyaltyTransaction : owns ▼
 
 @enduml
