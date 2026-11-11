@@ -17,7 +17,6 @@ describe('AuthService', () => {
     id: 'user-uuid-123',
     email: 'customer@example.com',
     passwordHash: '$2b$10$hashedpasswordstring',
-    role: 'CUSTOMER' as const,
     loyaltyPoints: 0,
     createdAt: new Date(),
   };
@@ -32,7 +31,7 @@ describe('AuthService', () => {
         jest.fn<
           (
             args: Prisma.UserCreateArgs,
-          ) => Promise<Pick<User, 'id' | 'email' | 'loyaltyPoints' | 'role'>>
+          ) => Promise<Pick<User, 'id' | 'email' | 'loyaltyPoints'>>
         >(),
     },
   };
@@ -83,7 +82,6 @@ describe('AuthService', () => {
         id: 'new-user-id',
         email: 'newuser@example.com',
         loyaltyPoints: 0,
-        role: 'CUSTOMER',
       });
 
       const result = await authService.register({
@@ -102,7 +100,6 @@ describe('AuthService', () => {
       ).resolves.toBe(true);
       expect(result).toBeDefined();
       expect(result.user).not.toHaveProperty('passwordHash');
-      expect(createdData.role).toBe('CUSTOMER');
     });
 
     it('Đăng ký lỗi khi email bị trùng (ném ra ConflictException/BadRequest)', async () => {
@@ -151,32 +148,9 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('user');
       expect(result.user.email).toBe('customer@example.com');
       expect(result.user.loyaltyPoints).toBe(0);
-      expect(result.user.role).toBe('CUSTOMER');
       expect(mockJwtService.signAsync).toHaveBeenCalledWith({
         sub: mockUser.id,
         email: mockUser.email,
-        role: 'CUSTOMER',
-      });
-    });
-
-    it('includes the staff role in the login response and JWT', async () => {
-      prismaService.user.findUnique.mockResolvedValue({
-        ...mockUser,
-        email: 'staff@example.com',
-        role: 'STAFF',
-        passwordHash: hashedPassword,
-      });
-
-      const result = await authService.login({
-        email: 'staff@example.com',
-        password: 'password123',
-      });
-
-      expect(result.user.role).toBe('STAFF');
-      expect(mockJwtService.signAsync).toHaveBeenCalledWith({
-        sub: mockUser.id,
-        email: 'staff@example.com',
-        role: 'STAFF',
       });
     });
 
@@ -211,7 +185,6 @@ describe('AuthService', () => {
       const profile = {
         id: mockUser.id,
         email: mockUser.email,
-        role: mockUser.role,
         loyaltyPoints: 0,
       };
       prismaService.user.findUnique.mockResolvedValue(profile);
@@ -220,7 +193,7 @@ describe('AuthService', () => {
       expect(result).not.toHaveProperty('passwordHash');
       expect(prismaService.user.findUnique).toHaveBeenCalledWith({
         where: { id: mockUser.id },
-        select: { id: true, email: true, role: true, loyaltyPoints: true },
+        select: { id: true, email: true, loyaltyPoints: true },
       });
     });
 

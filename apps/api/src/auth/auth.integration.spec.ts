@@ -2,7 +2,7 @@ import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
-import { Prisma, UserRole } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import type { User } from '@prisma/client';
 import { jest } from '@jest/globals';
 import request from 'supertest';
@@ -18,7 +18,6 @@ describe('Auth HTTP integration (mocked Prisma)', () => {
   const publicUser = {
     id: '08f637c9-6d1a-4610-9662-8f41a651fb26',
     email: 'customer@example.com',
-    role: UserRole.CUSTOMER,
     loyaltyPoints: 0,
   };
   let user: User;
@@ -78,11 +77,9 @@ describe('Auth HTTP integration (mocked Prisma)', () => {
     expect(payload).toMatchObject({
       sub: publicUser.id,
       email: publicUser.email,
-      role: 'CUSTOMER',
     });
     expect(payload.exp - payload.iat).toBe(86400);
     const data = prisma.user.create.mock.calls[0][0].data;
-    expect(data.role).toBe('CUSTOMER');
     expect(await bcrypt.compare('password123', data.passwordHash)).toBe(true);
   });
 
@@ -95,7 +92,7 @@ describe('Auth HTTP integration (mocked Prisma)', () => {
     { email: publicUser.email, password: '☕'.repeat(7) },
     { email: publicUser.email, password: 12345678 },
     { email: null, password: null },
-    { email: publicUser.email, password: 'password123', role: 'STAFF' },
+    { email: publicUser.email, password: 'password123', extra: true },
   ])('AUTH-HTTP-02: rejects invalid registration %j', async (body) => {
     await request(app.getHttpServer())
       .post('/auth/register')
@@ -125,30 +122,28 @@ describe('Auth HTTP integration (mocked Prisma)', () => {
       .expect(409);
   });
 
-  it.each([UserRole.CUSTOMER, UserRole.STAFF])(
-    'AUTH-HTTP-05: login issues a %s token usable on a protected endpoint',
-    async (role) => {
+  it('AUTH-HTTP-05: login issues a customer token usable on a protected endpoint', async () => {
       prisma.user.findUnique
-        .mockResolvedValueOnce({ ...user, role })
+        .mockResolvedValueOnce(user)
         .mockResolvedValueOnce(publicUser);
       const login = await request(app.getHttpServer())
         .post('/auth/login')
         .send({ email: user.email, password: 'password123' })
         .expect(200);
       expect(login.body.user).not.toHaveProperty('passwordHash');
-      expect(
-        (await jwt.verifyAsync(login.body.accessToken, { secret })).role,
-      ).toBe(role);
+      expect(await jwt.verifyAsync(login.body.accessToken, { secret })).toMatchObject({
+        sub: publicUser.id,
+        email: publicUser.email,
+      });
       await request(app.getHttpServer())
         .get('/auth/me')
         .set('Authorization', `Bearer ${login.body.accessToken}`)
         .expect(200, publicUser);
       expect(prisma.user.findUnique).toHaveBeenLastCalledWith({
         where: { id: publicUser.id },
-        select: { id: true, email: true, role: true, loyaltyPoints: true },
+        select: { id: true, email: true, loyaltyPoints: true },
       });
-    },
-  );
+    });
 
   it('AUTH-HTTP-06: unknown email and incorrect password receive the same 401', async () => {
     prisma.user.findUnique
@@ -193,7 +188,7 @@ describe('Auth HTTP integration (mocked Prisma)', () => {
     { algorithm: 'HS384' as const },
   ])('AUTH-HTTP-09: rejects invalid JWT %j', async (options) => {
     const token = await jwt.signAsync(
-      { sub: user.id, email: user.email, role: user.role },
+      { sub: user.id, email: user.email },
       options,
     );
     await request(app.getHttpServer())
@@ -204,9 +199,9 @@ describe('Auth HTTP integration (mocked Prisma)', () => {
   });
 
   it.each([
-    { email: publicUser.email, role: 'CUSTOMER' },
-    { sub: publicUser.id, email: publicUser.email, role: 'ADMIN' },
-    { sub: 123, email: publicUser.email, role: 'CUSTOMER' },
+    { email: publicUser.email },
+    { sub: publicUser.id, email: publicUser.email, extra: true },
+    { sub: 123, email: publicUser.email },
   ])('AUTH-HTTP-10: rejects malformed claims %j', async (claims) => {
     const token = await jwt.signAsync(claims);
     await request(app.getHttpServer())
@@ -219,7 +214,6 @@ describe('Auth HTTP integration (mocked Prisma)', () => {
     const token = await new JwtService({ secret }).signAsync({
       sub: user.id,
       email: user.email,
-      role: user.role,
     });
     await request(app.getHttpServer())
       .get('/auth/me')
@@ -232,7 +226,6 @@ describe('Auth HTTP integration (mocked Prisma)', () => {
     const token = await jwt.signAsync({
       sub: user.id,
       email: user.email,
-      role: user.role,
     });
     await request(app.getHttpServer())
       .get('/auth/me')
