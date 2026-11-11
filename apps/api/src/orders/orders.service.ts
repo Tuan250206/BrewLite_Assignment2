@@ -9,6 +9,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma.service.js';
 import { CreateOrderItemDto } from './dto/create-order.dto.js';
+import { calculateOrderItemLineTotal } from './order-pricing.js';
 import { assertTransition } from './order-state.js';
 
 const orderDetailInclude = {
@@ -77,7 +78,7 @@ export class OrdersService {
         );
 
         const orderItems = items.map((item) => {
-          const unitPrice = priceByProductId.get(item.productId)!;
+          const basePrice = priceByProductId.get(item.productId)!;
 
           return {
             productId: item.productId,
@@ -87,7 +88,12 @@ export class OrdersService {
                 ? item.topping.join(', ')
                 : '',
             qty: item.qty,
-            lineTotal: unitPrice.mul(item.qty),
+            lineTotal: calculateOrderItemLineTotal(
+              basePrice,
+              item.size,
+              item.topping,
+              item.qty,
+            ),
           };
         });
 

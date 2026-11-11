@@ -140,11 +140,13 @@ export default function AuthModal({
       }
 
       try {
-        window.localStorage.setItem('accessToken', auth.token);
-        window.localStorage.setItem('currentUser', JSON.stringify(auth.user));
-      } catch {
+        window.sessionStorage.setItem('accessToken', auth.token);
+        window.sessionStorage.setItem('currentUser', JSON.stringify(auth.user));
         window.localStorage.removeItem('accessToken');
         window.localStorage.removeItem('currentUser');
+      } catch {
+        window.sessionStorage.removeItem('accessToken');
+        window.sessionStorage.removeItem('currentUser');
         throw new Error('Không thể lưu phiên đăng nhập trên trình duyệt.');
       }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, CheckCircle, CreditCard, FlaskConical } from 'lucide-react';
+import { X, CheckCircle, CreditCard, Wallet } from 'lucide-react';
 import type { CartItem } from '@/stores/cartStore';
 
 interface CheckoutConfirmModalProps {
@@ -60,7 +60,7 @@ export default function CheckoutConfirmModal({
             Xác nhận thanh toán
           </h2>
           <p className="text-xs text-stone-500">
-            Kiểm tra đơn hàng và chọn kịch bản thanh toán mô phỏng
+            Kiểm tra đơn hàng và chọn phương thức thanh toán
           </p>
         </div>
 
@@ -99,7 +99,7 @@ export default function CheckoutConfirmModal({
 
         <fieldset className="mb-4 space-y-2" disabled={loading}>
           <legend className="text-xs font-semibold text-stone-700">
-            Kịch bản thanh toán (không giao dịch tiền thật):
+            Phương thức thanh toán (mô phỏng, không giao dịch tiền thật):
           </legend>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <button
@@ -112,9 +112,9 @@ export default function CheckoutConfirmModal({
                   : 'border-stone-200 hover:bg-stone-50 text-stone-700'
               }`}
             >
-              <FlaskConical className="h-4 w-4 shrink-0 text-amber-600" />
+              <Wallet className="h-4 w-4 shrink-0 text-amber-600" />
               <div>
-                <p className="text-xs font-bold leading-none">Kịch bản mô phỏng A</p>
+                <p className="text-xs font-bold leading-none">Ví BrewLite</p>
                 <p className="mt-1 text-[10px] text-stone-500">Mã nội bộ: WALLET</p>
               </div>
             </button>
@@ -131,12 +131,51 @@ export default function CheckoutConfirmModal({
             >
               <CreditCard className="h-4 w-4 shrink-0 text-amber-600" />
               <div>
-                <p className="text-xs font-bold leading-none">Kịch bản mô phỏng B</p>
+                <p className="text-xs font-bold leading-none">Thẻ ngân hàng</p>
                 <p className="mt-1 text-[10px] text-stone-500">Mã nội bộ: CARD</p>
               </div>
             </button>
           </div>
         </fieldset>
+        {selectedMethod === 'WALLET' && (
+          <div
+            aria-live="polite"
+            className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3"
+            role="status"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-600 text-white">
+                <Wallet aria-hidden="true" className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-amber-950">Ví BrewLite</p>
+                <p className="text-xs text-amber-800">
+                  Mô phỏng thanh toán bằng ví. Không cần quét mã QR.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        {selectedMethod === 'CARD' && (
+          <div
+            aria-live="polite"
+            className="mb-4 rounded-xl border border-stone-300 bg-stone-900 p-3 text-white"
+            role="status"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold">Thẻ ngân hàng</p>
+                <p className="mt-1 text-xs text-stone-300">
+                  Mô phỏng thanh toán bằng thẻ
+                </p>
+              </div>
+              <CreditCard aria-hidden="true" className="h-6 w-6 text-amber-300" />
+            </div>
+            <p className="mt-3 text-[11px] text-stone-300">
+              Không nhập thông tin thẻ thật. Backend xử lý kết quả khi bạn xác nhận.
+            </p>
+          </div>
+        )}
         {!selectedMethod && (
           <p className="mb-4 text-xs text-stone-500" role="status">
             Chọn phương thức thanh toán để tiếp tục.
