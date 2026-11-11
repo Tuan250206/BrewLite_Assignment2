@@ -30,7 +30,7 @@ BrewLite hỗ trợ khách xem menu, chọn tùy chọn, quản lý giỏ hàng,
 | IS-04 | Backend kiểm tra dữ liệu đơn, lấy giá cơ bản từ database và tính giá theo size/topping.                                                                                                          |
 | IS-05 | Backend kiểm tra tình trạng tồn kho trước khi chấp nhận đơn; từ chối tạo đơn nếu sản phẩm không đủ số lượng theo yêu cầu.                                                                        |
 | IS-06 | Thanh toán qua mock gateway bằng ví điện tử (`WALLET`) hoặc thẻ (`CARD`); tiếp nhận kết quả thành công/thất bại và xử lý callback lặp theo `Idempotency-Key`.                                    |
-| IS-07 | Khách hàng xem lịch sử và trạng thái đơn của tài khoản mình; có thể hủy đơn `PENDING` hoặc `PAYMENT_FAILED`, và thử thanh toán lại đơn `PAYMENT_FAILED`. Đơn `PAID` không thể hủy qua luồng này. |
+| IS-07 | Khách hàng xem lịch sử và trạng thái đơn của tài khoản mình; có thể hủy đơn hoặc thử thanh toán lại khi đơn ở trạng thái PAYMENT_FAILED (đơn PENDING nếu rời khỏi quy trình thanh toán sẽ được hệ thống tự động chuyển sang CANCELLED). Đơn PAID không thể hủy qua luồng này |
 
 ## 4. Phạm vi mở rộng (Future Scope)
 
@@ -51,7 +51,7 @@ BrewLite hỗ trợ khách xem menu, chọn tùy chọn, quản lý giỏ hàng,
 | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | OS-01 | Thu tiền thật, kết nối ngân hàng/ví thật hoặc lưu dữ liệu thanh toán thật.                                                                                                                                                       |
 | OS-02 | Ứng dụng native iOS/Android, giao hàng, định vị hoặc theo dõi nhân viên giao hàng.                                                                                                                                               |
-| OS-03 | Hệ thống quản trị cửa hàng đầy đủ như quản lý tài khoản và phân quyền nhân viên, báo cáo doanh thu nâng cao hoặc cấu hình menu qua giao diện quản trị. Việc nhân viên cập nhật trạng thái đơn theo quyền được cấp vẫn thuộc MVP. |
+| OS-03 | Hệ thống quản trị cửa hàng đầy đủ như quản lý tài khoản và phân quyền nhân viên, báo cáo doanh thu nâng cao hoặc cấu hình menu qua giao diện quản trị. |
 | OS-04 | Đồng bộ tồn kho với POS/ERP hoặc nhà cung cấp bên ngoài.                                                                                                                                                                         |
 | OS-05 | Hóa đơn điện tử và hoàn tiền bằng giao dịch tiền thật.                                                                                                                                                                           |
 | OS-06 | Cam kết vận hành production, SLA, tải lớn hoặc chứng nhận thanh toán.                                                                                                                                                            |
