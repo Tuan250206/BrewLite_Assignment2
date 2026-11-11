@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mail, X } from 'lucide-react';
 import Image from 'next/image';
+import { orderPaymentFetch } from '@/lib/order-payment-api';
 
 interface PaymentQrModalProps {
+  isMock?: boolean;
   session: {
     orderId: string;
     name: string;
@@ -26,13 +28,18 @@ interface PaymentQrModalProps {
     } | null;
   } | null;
   onClose: () => void;
+  cancelError?: string | null;
+  cancelling?: boolean;
   onConfirmed: (orderId: string) => void;
   onFailed: (orderId: string) => void;
 }
 
 export default function PaymentQrModal({
+  isMock = false,
   session,
   onClose,
+  cancelError,
+  cancelling = false,
   onConfirmed,
   onFailed,
 }: PaymentQrModalProps) {
@@ -63,7 +70,7 @@ export default function PaymentQrModal({
       }
 
       try {
-        const response = await fetch(
+        const response = await orderPaymentFetch(
           `http://localhost:3001/payments/orders/${encodeURIComponent(session.orderId)}/status`,
           { headers: { Authorization: `Bearer ${token}` } },
         );
@@ -129,13 +136,21 @@ export default function PaymentQrModal({
           type="button"
           aria-label="Đóng"
           onClick={onClose}
-          className="absolute right-4 top-4 text-stone-400 hover:text-stone-700"
+          disabled={cancelling}
+          className="absolute right-4 top-4 text-stone-400 hover:text-stone-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <X className="h-5 w-5" />
         </button>
         <p className="mt-1 text-sm text-stone-600">
-          Giao dịch mô phỏng đang chờ xác nhận kết quả từ hệ thống.
+          {isMock
+            ? 'Mock Payment đang chờ giao diện nhận kết quả kiểm thử.'
+            : 'Giao dịch mô phỏng đang chờ xác nhận kết quả từ hệ thống.'}
         </p>
+        {isMock && (
+          <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+            MOCK ONLY — không gọi cổng thanh toán và không có giao dịch tiền thật.
+          </p>
+        )}
         <p className="mt-1 text-xs text-stone-500">
           Trạng thái chỉ được cập nhật theo phản hồi của API.
         </p>
@@ -157,6 +172,14 @@ export default function PaymentQrModal({
         >
           {paymentStatusMessage}
         </p>
+        {cancelError && (
+          <p
+            className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"
+            role="alert"
+          >
+            {cancelError}
+          </p>
+        )}
         <div className="mt-5 grid grid-cols-1 gap-2">
           <button
             type="button"

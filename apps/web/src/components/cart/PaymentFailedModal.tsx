@@ -5,6 +5,7 @@ import { AlertCircle, LoaderCircle } from 'lucide-react';
 interface PaymentFailedModalProps {
   orderId: string | null;
   loading: boolean;
+  isMock?: boolean;
   onRetry: () => void;
   onCancel: () => void;
 }
@@ -12,6 +13,7 @@ interface PaymentFailedModalProps {
 export default function PaymentFailedModal({
   orderId,
   loading,
+  isMock = false,
   onRetry,
   onCancel,
 }: PaymentFailedModalProps) {
@@ -36,8 +38,9 @@ export default function PaymentFailedModal({
           Thanh toán thất bại
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-stone-600">
-          Hệ thống xác nhận kết quả FAILED. Đơn chưa được thanh toán; bạn có
-          thể thử lại hoặc hủy đơn hàng.
+          {isMock
+            ? 'Mock API trả về FAILED để kiểm thử giao diện. Không có giao dịch tiền thật; bạn có thể thử lại hoặc hủy đơn.'
+            : 'Hệ thống xác nhận kết quả FAILED. Đơn chưa được thanh toán; bạn có thể thử lại hoặc hủy đơn hàng.'}
         </p>
         <p className="mt-3 text-xs text-stone-500">
           Mã đơn:{' '}

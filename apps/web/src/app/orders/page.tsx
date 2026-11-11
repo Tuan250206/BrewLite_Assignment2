@@ -9,6 +9,10 @@ import {
   type OrderHistoryEntry,
   type OrderStatus,
 } from '@/lib/orders-api';
+import {
+  isOrderPaymentMockEnabled,
+  orderPaymentFetch,
+} from '@/lib/order-payment-api';
 
 type PageState =
   | { kind: 'loading' }
@@ -54,6 +58,9 @@ export default function OrdersPage() {
   const [cancelConfirmationOrderId, setCancelConfirmationOrderId] = useState<
     string | null
   >(null);
+  const [actionOrderId, setActionOrderId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState('');
+  const mockEnabled = isOrderPaymentMockEnabled();
 
   const loadOrders = useCallback(async (signal: AbortSignal): Promise<PageState | null> => {
     const token = window.localStorage.getItem('accessToken');
@@ -92,6 +99,51 @@ export default function OrdersPage() {
     setReloadKey((key) => key + 1);
   };
 
+  const updateOrder = async (
+    orderId: string,
+    action: 'cancel' | 'retry-payment',
+  ) => {
+    const token = window.localStorage.getItem('accessToken');
+    if (!token) {
+      setPageState({ kind: 'unauthenticated' });
+      setCancelConfirmationOrderId(null);
+      return;
+    }
+
+    setActionOrderId(orderId);
+    setActionError('');
+    try {
+      const response = await orderPaymentFetch(
+        `http://localhost:3001/orders/${encodeURIComponent(orderId)}/${action}`,
+        {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      const data: unknown = await response.json();
+      if (!response.ok) {
+        const message =
+          typeof data === 'object' &&
+          data !== null &&
+          'message' in data &&
+          typeof data.message === 'string'
+            ? data.message
+            : 'Không thể cập nhật đơn hàng.';
+        throw new Error(message);
+      }
+
+      setCancelConfirmationOrderId(null);
+      setPageState({ kind: 'loading' });
+      setReloadKey((key) => key + 1);
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : 'Không thể cập nhật đơn hàng.',
+      );
+    } finally {
+      setActionOrderId(null);
+    }
+  };
+
   return (
     <main className="min-h-screen px-4 py-8 sm:px-6">
       <div className="mx-auto max-w-4xl">
@@ -111,6 +163,15 @@ export default function OrdersPage() {
             Theo dõi các đơn hàng đã đặt.
           </p>
         </header>
+
+        {actionError && !cancelConfirmationOrderId && (
+          <p
+            className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+            role="alert"
+          >
+            {actionError}
+          </p>
+        )}
 
         {pageState.kind === 'loading' && (
           <div
@@ -228,39 +289,38 @@ export default function OrdersPage() {
                     </span>
                   </div>
 
-                  {(order.status === 'PENDING' ||
-                    order.status === 'PAYMENT_FAILED') && (
+                  {order.status === 'PAYMENT_FAILED' && (
                     <div className="mt-4 border-t border-stone-100 pt-4">
                       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                         <button
                           type="button"
-                          onClick={() =>
-                            setCancelConfirmationOrderId(order.id)
-                          }
+                          onClick={() => {
+                            setActionError('');
+                            setCancelConfirmationOrderId(order.id);
+                          }}
                           className="rounded-xl border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
                         >
                           Hủy đơn
                         </button>
-                        {order.status === 'PAYMENT_FAILED' && (
-                          <button
-                            type="button"
-                            disabled
-                            aria-describedby={`retry-unavailable-${order.id}`}
-                            className="cursor-not-allowed rounded-xl bg-amber-700 px-4 py-2 text-sm font-semibold text-white opacity-50"
-                          >
-                            Thử thanh toán lại
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => void updateOrder(order.id, 'retry-payment')}
+                          disabled={!mockEnabled || actionOrderId !== null}
+                          aria-describedby={`retry-unavailable-${order.id}`}
+                          className="rounded-xl bg-amber-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {actionOrderId === order.id
+                            ? 'Đang xử lý...'
+                            : 'Thử thanh toán lại'}
+                        </button>
                       </div>
                       <p
-                        id={
-                          order.status === 'PAYMENT_FAILED'
-                            ? `retry-unavailable-${order.id}`
-                            : undefined
-                        }
+                        id={`retry-unavailable-${order.id}`}
                         className="mt-2 text-right text-xs text-stone-500"
                       >
-                        Các thao tác đang chờ API Orders/Payments của TV3.
+                        {mockEnabled
+                          ? 'Thao tác chỉ cập nhật dữ liệu Mock trong phiên kiểm thử.'
+                          : 'Các thao tác đang chờ API Orders/Payments của TV3.'}
                       </p>
                     </div>
                   )}
@@ -301,24 +361,39 @@ export default function OrdersPage() {
             >
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <p>
-                Chưa thể gửi yêu cầu hủy. Backend Assignment 2 chưa có API
-                Orders; đơn hàng chưa bị thay đổi.
+                {mockEnabled
+                  ? 'Chỉ áp dụng cho đơn PAYMENT_FAILED. Xác nhận sẽ hủy đơn Mock trong phiên kiểm thử; không thay đổi dữ liệu backend thật.'
+                  : 'Chỉ áp dụng cho đơn PAYMENT_FAILED. API Orders/Payments của TV3 chưa khả dụng; đơn hàng chưa bị thay đổi.'}
               </p>
             </div>
+            {actionError && (
+              <p className="mt-3 text-sm text-red-700" role="alert">
+                {actionError}
+              </p>
+            )}
             <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => setCancelConfirmationOrderId(null)}
+                disabled={actionOrderId !== null}
                 className="rounded-xl border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50"
               >
                 Đóng
               </button>
               <button
                 type="button"
-                disabled
-                className="cursor-not-allowed rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white opacity-50"
+                onClick={() =>
+                  cancelConfirmationOrderId &&
+                  void updateOrder(cancelConfirmationOrderId, 'cancel')
+                }
+                disabled={!mockEnabled || actionOrderId !== null}
+                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Chờ API TV3
+                {actionOrderId
+                  ? 'Đang xử lý...'
+                  : mockEnabled
+                    ? 'Hủy đơn Mock'
+                    : 'Chờ API TV3'}
               </button>
             </div>
           </section>

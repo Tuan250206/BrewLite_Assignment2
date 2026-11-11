@@ -5,10 +5,15 @@ import { CheckCircle, Copy, Check } from 'lucide-react';
 
 interface OrderSuccessModalProps {
   orderId: string | null;
+  isMock?: boolean;
   onClose: () => void;
 }
 
-export default function OrderSuccessModal({ orderId, onClose }: OrderSuccessModalProps) {
+export default function OrderSuccessModal({
+  orderId,
+  isMock = false,
+  onClose,
+}: OrderSuccessModalProps) {
   const [copiedOrderId, setCopiedOrderId] = React.useState<string | null>(null);
   const [copyError, setCopyError] = React.useState('');
   const [copying, setCopying] = React.useState(false);
@@ -48,10 +53,12 @@ export default function OrderSuccessModal({ orderId, onClose }: OrderSuccessModa
           Thanh toán thành công
         </h2>
         <p className="mt-1 text-xs text-stone-500 leading-relaxed">
-          Hệ thống đã xác nhận kết quả SUCCESS và đơn hàng ở trạng thái PAID.
+          {isMock
+            ? 'Mock API xác nhận SUCCESS để kiểm thử giao diện; không phát sinh thanh toán thật.'
+            : 'Hệ thống đã xác nhận kết quả SUCCESS và đơn hàng ở trạng thái PAID.'}
         </p>
         <span className="mt-3 inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold tracking-wide text-emerald-700">
-          SUCCESS · PAID
+          {isMock ? 'MOCK SUCCESS · PAID' : 'SUCCESS · PAID'}
         </span>
 
         {/* Khối hiển thị mã đơn + nút sao chép */}
