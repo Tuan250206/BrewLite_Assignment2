@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  distDir: process.env.BREWLITE_E2E === 'true' ? '.next-e2e' : '.next',
 };
 
 export default nextConfig;
