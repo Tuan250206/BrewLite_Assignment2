@@ -80,7 +80,7 @@ else Đủ hàng và dữ liệu hợp lệ
                 UI --> User: Tạo Idempotency-Key mới & Mở lại luồng chọn phương thức
             else Khách hàng chọn Hủy đơn
                 User -> UI: Bấm "Hủy đơn"
-                UI -> API: PATCH /orders/{id}/cancel
+                UI -> API: PATCH /orders/{id}/cancel\n[Header: Bearer Token]
                 API -> DB: UPDATE Order status = 'CANCELLED'
                 DB --> API: Hoàn tất
                 API --> UI: 200 OK (Đã hủy đơn)

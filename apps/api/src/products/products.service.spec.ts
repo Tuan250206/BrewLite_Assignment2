@@ -19,8 +19,8 @@ describe('ProductsService', () => {
   // Giả lập các hàm Prisma mà ProductsService sử dụng
   const mockPrismaService = {
     product: {
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
+      findMany: jest.fn<() => Promise<unknown[]>>(),
+      findUnique: jest.fn<() => Promise<unknown>>(),
     },
   };
 
