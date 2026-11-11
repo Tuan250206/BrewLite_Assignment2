@@ -8,6 +8,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { CreatePaymentDto } from './dto/create-payment.dto.js';
@@ -21,6 +22,8 @@ type AuthenticatedRequest = Request & {
 };
 
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth()
+@ApiTags('Payments')
 @Controller('payments')
 export class PaymentsController {
   constructor(
