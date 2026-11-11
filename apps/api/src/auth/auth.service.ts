@@ -5,10 +5,10 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { Prisma, UserRole } from '@prisma/client';
-import { PrismaService } from '../prisma.service';
-import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
+import { Prisma } from '@prisma/client';
+import { PrismaService } from '../prisma.service.js';
+import { LoginDto } from './dto/login.dto.js';
+import { RegisterDto } from './dto/register.dto.js';
 
 @Injectable()
 export class AuthService {
@@ -30,8 +30,8 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.password, 12);
     try {
       const user = await this.prisma.user.create({
-        data: { email, passwordHash, role: UserRole.CUSTOMER },
-        select: { id: true, email: true, loyaltyPoints: true, role: true },
+        data: { email, passwordHash },
+        select: { id: true, email: true, loyaltyPoints: true },
       });
       return this.issueToken(user);
     } catch (error) {
@@ -58,14 +58,13 @@ export class AuthService {
       id: user.id,
       email: user.email,
       loyaltyPoints: user.loyaltyPoints,
-      role: user.role,
     });
   }
 
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, role: true, loyaltyPoints: true },
+      select: { id: true, email: true, loyaltyPoints: true },
     });
 
     if (!user) {
@@ -79,12 +78,10 @@ export class AuthService {
     id: string;
     email: string;
     loyaltyPoints: number;
-    role: UserRole;
   }) {
     const accessToken = await this.jwtService.signAsync({
       sub: user.id,
       email: user.email,
-      role: user.role,
     });
 
     return { accessToken, user };

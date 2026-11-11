@@ -1,97 +1,149 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// Máy trạng thái đơn hàng theo mục 9.1
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
 enum OrderStatus {
   PENDING
   PAID
+  PAYMENT_FAILED
   PREPARING
   READY
   COMPLETED
-  PAYMENT_FAILED
   CANCELLED
 }
 
+enum PaymentMethod {
+  WALLET
+  CARD
+}
+
 enum PaymentStatus {
-  PENDING
-  PAID
-  PAYMENT_FAILED
+  SUCCESS
+  FAILED
 }
 
-enum UserRole {
-  CUSTOMER
-  STAFF
-}
+// ==========================================
+// MODELS
+// ==========================================
 
-// Thực thể User (Mục 12.2 & Task 7)
 model User {
-  id             String   @id @default(uuid())
-  email          String   @unique
-  passwordHash   String
-  role           UserRole @default(CUSTOMER)
-  loyaltyPoints  Int      @default(0)
-  createdAt      DateTime @default(now())
-  orders         Order[]
+  id            String @id @default(uuid())
+  email         String @unique
+  passwordHash  String
+  loyaltyPoints Int    @default(0)
+
+  // Relations
+  orders              Order[]
+  loyaltyTransactions LoyaltyTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
 }
 
-// Thực thể Product (Mục 12.2 & Task 2)
 model Product {
-  id          String      @id @default(uuid())
-  name        String
-  price       Float
-  imageUrl    String
-  stock       Int         @default(0)
-  orderItems  OrderItem[]
+  id       String  @id @default(uuid())
+  name     String
+  price    Decimal @db.Decimal(12, 2)
+  imageUrl String
+  stock    Int     @default(0)
+
+  // Relations
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("products")
 }
 
-// Thực thể Order (Mục 12.2 & Task 6)
+model Promotion {
+  id              String  @id @default(uuid())
+  code            String  @unique
+  description     String
+  discountPercent Decimal @db.Decimal(5, 2)
+  isActive        Boolean @default(true)
+
+  // Relations
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("promotions")
+}
+
 model Order {
-  id         String      @id @default(uuid())
-  userId     String?
-  user       User?       @relation(fields: [userId], references: [id])
-  status     OrderStatus @default(PENDING)
-  total      Float
-  createdAt  DateTime    @default(now())
-  items      OrderItem[]
-  payments   Payment[]
+  id            String      @id @default(uuid())
+  userId        String
+  status        OrderStatus @default(PENDING)
+  total         Decimal     @db.Decimal(12, 2)
+  promotionCode String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  promotion           Promotion?           @relation(fields: [promotionCode], references: [code], onDelete: SetNull)
+  orderItems          OrderItem[]
+  payments            Payment[]
+  loyaltyTransactions LoyaltyTransaction[]
+
+  @@map("orders")
 }
 
-// Thực thể OrderItem (Mục 12.2 & Task 4, 5)
 model OrderItem {
   id        String  @id @default(uuid())
   orderId   String
-  order     Order   @relation(fields: [orderId], references: [id])
   productId String
-  product   Product @relation(fields: [productId], references: [id])
-  size      String  // S, M, L
-  topping   String?
+  size      String
+  topping   String
   qty       Int
-  lineTotal Float
+  lineTotal Decimal @db.Decimal(12, 2)
+
+  // Relations
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("order_items")
 }
 
-// Thực thể Payment (Mục 12.2 & Task 8, 10 - Idempotent)
 model Payment {
-  id                    String        @id @default(uuid())
-  orderId               String
-  order                 Order         @relation(fields: [orderId], references: [id])
-  idempotencyKey        String        @unique
-  amount                Float
-  method                String        // VÍ ĐIỆN TỬ / THẺ NGÂN HÀNG
-  status                PaymentStatus @default(PENDING)
-  confirmationTokenHash String?
-  expiresAt             DateTime?
-  providerTransactionId String?
-  gatewayPaymentUrl     String?
-  testAccount           String?
-  testCredentialHash    String?
-  createdAt             DateTime      @default(now())
+  id             String        @id @default(uuid())
+  orderId        String
+  idempotencyKey String        @unique
+  amount         Decimal       @db.Decimal(12, 2)
+  method         PaymentMethod
+  status         PaymentStatus
 
-  @@index([confirmationTokenHash])
-  @@index([providerTransactionId])
+  // Relations
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("payments")
+}
+
+model LoyaltyTransaction {
+  id          String   @id @default(uuid())
+  userId      String
+  orderId     String?
+  pointsDelta Int
+  createdAt   DateTime @default(now())
+
+  // Relations
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@map("loyalty_transactions")
 }
