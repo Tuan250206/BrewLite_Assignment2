@@ -38,6 +38,7 @@ describe('Auth HTTP integration (mocked Prisma)', () => {
       ...publicUser,
       passwordHash: await bcrypt.hash('password123', 4),
       createdAt: new Date(),
+      updatedAt: new Date(),
     };
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PrismaService)
