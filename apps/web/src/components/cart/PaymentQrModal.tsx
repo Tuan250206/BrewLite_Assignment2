@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ExternalLink, Mail, X } from 'lucide-react';
+import { Mail, X } from 'lucide-react';
 import Image from 'next/image';
 
 interface PaymentQrModalProps {
@@ -37,6 +37,9 @@ export default function PaymentQrModal({
   onFailed,
 }: PaymentQrModalProps) {
   const [showEmail, setShowEmail] = useState(false);
+  const [paymentStatusMessage, setPaymentStatusMessage] = useState(
+    'Đang chờ xác nhận trạng thái thanh toán từ hệ thống.',
+  );
   const onConfirmedRef = useRef(onConfirmed);
   const onFailedRef = useRef(onFailed);
 
@@ -52,7 +55,12 @@ export default function PaymentQrModal({
     let timeoutId: ReturnType<typeof setTimeout>;
     const checkPaymentStatus = async () => {
       const token = localStorage.getItem('accessToken');
-      if (!token) return;
+      if (!token) {
+        setPaymentStatusMessage(
+          'Không tìm thấy phiên đăng nhập để kiểm tra trạng thái thanh toán.',
+        );
+        return;
+      }
 
       try {
         const response = await fetch(
@@ -62,19 +70,37 @@ export default function PaymentQrModal({
         if (!response.ok) {
           throw new Error('Không thể kiểm tra trạng thái thanh toán.');
         }
-        const status = await response.json();
+        const status: unknown = await response.json();
         if (!active) return;
 
-        if (status.paymentStatus === 'PAID') {
+        if (
+          typeof status === 'object' &&
+          status !== null &&
+          'paymentStatus' in status &&
+          status.paymentStatus === 'PAID'
+        ) {
           onConfirmedRef.current(session.orderId);
           return;
         }
-        if (status.paymentStatus === 'PAYMENT_FAILED') {
+        if (
+          typeof status === 'object' &&
+          status !== null &&
+          'paymentStatus' in status &&
+          status.paymentStatus === 'PAYMENT_FAILED'
+        ) {
           onFailedRef.current(session.orderId);
           return;
         }
+
+        setPaymentStatusMessage(
+          'Thanh toán chưa được xác nhận. Trạng thái sẽ tiếp tục được kiểm tra.',
+        );
       } catch (error) {
+        if (!active) return;
         console.error('Lỗi kiểm tra trạng thái thanh toán:', error);
+        setPaymentStatusMessage(
+          'Chưa kiểm tra được trạng thái thanh toán. Hệ thống sẽ thử lại.',
+        );
       }
 
       if (active) {
@@ -96,7 +122,7 @@ export default function PaymentQrModal({
       <section
         aria-labelledby="payment-qr-title"
         aria-modal="true"
-        className="relative w-full max-w-sm rounded-2xl border border-stone-200 bg-white p-6 text-center shadow-2xl"
+        className="relative max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl border border-stone-200 bg-white p-5 text-center shadow-2xl sm:p-6"
         role="dialog"
       >
         <button
@@ -108,10 +134,10 @@ export default function PaymentQrModal({
           <X className="h-5 w-5" />
         </button>
         <p className="mt-1 text-sm text-stone-600">
-          Quét mã QR hoặc mở cổng thanh toán để tiếp tục.
+          Giao dịch mô phỏng đang chờ xác nhận kết quả từ hệ thống.
         </p>
         <p className="mt-1 text-xs text-stone-500">
-          Ứng dụng sẽ tự cập nhật khi nhận được phản hồi từ cổng thanh toán.
+          Trạng thái chỉ được cập nhật theo phản hồi của API.
         </p>
         <Image
           alt="Mã QR thanh toán "
@@ -123,6 +149,13 @@ export default function PaymentQrModal({
         />
         <p className="mt-3 break-all text-xs text-stone-500">
           Mã giao dịch {session.transactionId}
+        </p>
+        <p
+          aria-live="polite"
+          className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800"
+          role="status"
+        >
+          {paymentStatusMessage}
         </p>
         <div className="mt-5 grid grid-cols-1 gap-2">
           <button
@@ -139,7 +172,7 @@ export default function PaymentQrModal({
           <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50 p-4 text-left">
             <div className="flex items-center gap-2 text-sm font-bold text-stone-800">
               <Mail className="h-4 w-4 text-amber-700" />
-              Email xác nhận ảo (không gửi Gmail thật)
+              Email xác nhận mô phỏng
             </div>
             <p className="mt-2 text-xs text-stone-600">
               <span className="font-semibold">Đến:</span> {session.mockEmail.to}
@@ -168,7 +201,7 @@ export default function PaymentQrModal({
                 rel="noreferrer"
                 target="_blank"
               >
-                Xác nhận thanh toán <ExternalLink className="h-4 w-4" />
+                Xác nhận kết quả mô phỏng
               </a>
               <p className="mt-2 text-[11px] text-stone-500">
                 Liên kết hết hạn lúc{' '}
@@ -180,12 +213,12 @@ export default function PaymentQrModal({
             </div>
           </div>
         )}
-        <p className="mt-3 text-xs text-amber-700">
-          Bấm nút xác nhận trong email để mở cổng B, sau đó xác nhận giao dịch
-          tại đó.
+        <p className="mt-3 break-words text-xs text-amber-700">
+          Sử dụng thông tin và liên kết xác nhận do API mô phỏng trả về. Giao
+          diện không kết nối ngân hàng, ví điện tử hoặc cổng thanh toán thật.
         </p>
         <p className="mt-2 text-xs text-stone-500">
-          Đóng cửa sổ này sẽ hủy đơn hàng đang chờ.
+          Đóng cửa sổ sẽ gửi yêu cầu hủy đơn đang chờ theo luồng hiện tại.
         </p>
       </section>
     </div>
