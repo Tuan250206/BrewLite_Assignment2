@@ -11,6 +11,8 @@ interface CheckoutConfirmModalProps {
   items: CartItem[];
   totalPrice: number;
   loading: boolean;
+  cancelError?: string | null;
+  cancelling?: boolean;
 }
 
 export default function CheckoutConfirmModal({
@@ -20,6 +22,8 @@ export default function CheckoutConfirmModal({
   items,
   totalPrice,
   loading,
+  cancelError,
+  cancelling = false,
 }: CheckoutConfirmModalProps) {
   const [selectedMethod, setSelectedMethod] = useState<'WALLET' | 'CARD' | null>(null);
   const [simulateFail, setSimulateFail] = useState(false);
@@ -27,124 +31,238 @@ export default function CheckoutConfirmModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-stone-200 animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <section
+        aria-labelledby="checkout-confirm-title"
+        aria-modal="true"
+        aria-busy={loading}
+        className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-stone-200 bg-white p-5 shadow-2xl sm:p-6"
+        role="dialog"
+      >
         <button
+          type="button"
+          aria-label="Đóng"
           onClick={onClose}
-          disabled={loading}
-          className="absolute right-4 top-4 text-stone-400 hover:text-stone-700 disabled:opacity-50"
+          disabled={loading || cancelling}
+          className="absolute right-4 top-4 rounded-full p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <X className="w-5 h-5" />
+          <X className="h-5 w-5" />
         </button>
 
-        <div className="text-center mb-4">
-          <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-700 flex items-center justify-center mx-auto mb-2">
-            <CreditCard className="w-6 h-6" />
+        <div className="mb-4 text-center">
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-700">
+            <CreditCard className="h-6 w-6" />
           </div>
-          <h3 className="text-lg font-bold text-stone-900">Xác nhận thanh toán</h3>
-          <p className="text-xs text-stone-500">Kiểm tra thông tin món và chọn phương thức thanh toán</p>
+          <h2
+            id="checkout-confirm-title"
+            className="text-lg font-bold text-stone-900"
+          >
+            Xác nhận thanh toán
+          </h2>
+          <p className="text-xs text-stone-500">
+            Kiểm tra đơn hàng và chọn phương thức thanh toán
+          </p>
         </div>
 
-        {/* Danh sách món tóm tắt */}
-        <div className="max-h-40 overflow-y-auto divide-y divide-stone-100 border-y border-stone-100 my-3 py-1">
-          {items.map((item, idx) => (
-            <div key={idx} className="py-2 flex justify-between items-start text-xs">
-              <div>
-                <p className="font-semibold text-stone-800">
-                  {item.name} <span className="text-stone-400">x{item.quantity}</span>
-                </p>
-                <p className="text-[11px] text-stone-500">
-                  {item.size ? `Size ${item.size}` : ''}
-                  {item.topping && item.topping.length > 0 ? ` + ${item.topping.join(', ')}` : ''}
-                </p>
+        <div className="my-3 max-h-40 divide-y divide-stone-100 overflow-y-auto border-y border-stone-100 py-1">
+          {items.length === 0 ? (
+            <p className="py-4 text-center text-sm text-stone-500">
+              Giỏ hàng hiện không có món nào.
+            </p>
+          ) : (
+            items.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-start justify-between gap-3 py-2 text-xs"
+              >
+                <div className="min-w-0">
+                  <p className="break-words font-semibold text-stone-800">
+                    {item.name}{' '}
+                    <span className="whitespace-nowrap text-stone-400">
+                      x{item.quantity}
+                    </span>
+                  </p>
+                  <p className="break-words text-[11px] text-stone-500">
+                    {item.size ? `Size ${item.size}` : ''}
+                    {item.topping && item.topping.length > 0
+                      ? ` + ${item.topping.join(', ')}`
+                      : ''}
+                  </p>
+                </div>
+                <span className="shrink-0 font-medium text-stone-700">
+                  {(item.unitPrice * item.quantity).toLocaleString('vi-VN')}đ
+                </span>
               </div>
-              <span className="font-medium text-stone-700">
-                {(item.unitPrice * item.quantity).toLocaleString('vi-VN')}đ
-              </span>
-            </div>
-          ))}
+            ))
+          )}
         </div>
 
-        {/* Lựa chọn phương thức thanh toán */}
-        <div className="space-y-2 mb-4">
-          <label className="block text-xs font-semibold text-stone-700">Chọn phương thức thanh toán:</label>
-          <div className="grid grid-cols-2 gap-2">
+        <fieldset className="mb-4 space-y-2" disabled={loading}>
+          <legend className="text-xs font-semibold text-stone-700">
+            Phương thức thanh toán (mô phỏng, không giao dịch tiền thật):
+          </legend>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => setSelectedMethod('WALLET')}
-              className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition ${
+              aria-pressed={selectedMethod === 'WALLET'}
+              className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
                 selectedMethod === 'WALLET'
                   ? 'border-amber-600 bg-amber-50/50 text-amber-900 ring-1 ring-amber-600'
                   : 'border-stone-200 hover:bg-stone-50 text-stone-700'
               }`}
             >
-              <Wallet className="w-4 h-4 text-amber-600" />
+              <Wallet className="h-4 w-4 shrink-0 text-amber-600" />
               <div>
-                <p className="text-xs font-bold leading-none">Ví điện tử</p>
-                <p className="text-[10px] text-stone-500 mt-1">MoMo / ZaloPay</p>
+                <p className="text-xs font-bold leading-none">Ví BrewLite</p>
+                <p className="mt-1 text-[10px] text-stone-500">Mã nội bộ: WALLET</p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => setSelectedMethod('CARD')}
-              className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition ${
+              aria-pressed={selectedMethod === 'CARD'}
+              className={`flex items-center gap-2.5 rounded-xl border p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
                 selectedMethod === 'CARD'
                   ? 'border-amber-600 bg-amber-50/50 text-amber-900 ring-1 ring-amber-600'
                   : 'border-stone-200 hover:bg-stone-50 text-stone-700'
               }`}
             >
-              <CreditCard className="w-4 h-4 text-amber-600" />
+              <CreditCard className="h-4 w-4 shrink-0 text-amber-600" />
               <div>
                 <p className="text-xs font-bold leading-none">Thẻ ngân hàng</p>
-                <p className="text-[10px] text-stone-500 mt-1">ATM / Thẻ quốc tế</p>
+                <p className="mt-1 text-[10px] text-stone-500">Mã nội bộ: CARD</p>
               </div>
             </button>
           </div>
-        </div>
+        </fieldset>
+        {selectedMethod === 'WALLET' && (
+          <div
+            aria-live="polite"
+            className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3"
+            role="status"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-600 text-white">
+                <Wallet aria-hidden="true" className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-amber-950">Ví BrewLite</p>
+                <p className="text-xs text-amber-800">
+                  Mô phỏng thanh toán bằng ví. Không cần quét mã QR.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        {selectedMethod === 'CARD' && (
+          <div
+            aria-live="polite"
+            className="mb-4 rounded-xl border border-stone-300 bg-stone-900 p-3 text-white"
+            role="status"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold">Thẻ ngân hàng</p>
+                <p className="mt-1 text-xs text-stone-300">
+                  Mô phỏng thanh toán bằng thẻ
+                </p>
+              </div>
+              <CreditCard aria-hidden="true" className="h-6 w-6 text-amber-300" />
+            </div>
+            <p className="mt-3 text-[11px] text-stone-300">
+              Không nhập thông tin thẻ thật. Backend xử lý kết quả khi bạn xác nhận.
+            </p>
+          </div>
+        )}
+        {!selectedMethod && (
+          <p className="mb-4 text-xs text-stone-500" role="status">
+            Chọn phương thức thanh toán để tiếp tục.
+          </p>
+        )}
 
-        <label className="mb-4 flex cursor-pointer items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 p-2.5">
-          <input
-            type="checkbox"
-            checked={simulateFail}
-            onChange={(event) => setSimulateFail(event.target.checked)}
-            disabled={loading}
-            className="h-4 w-4 rounded border-stone-300 text-amber-600 focus:ring-amber-500"
-          />
-          <span className="text-xs text-stone-600">
-            Mô phỏng thanh toán thất bại (kiểm thử PAYMENT_FAILED)
-          </span>
-        </label>
+        <fieldset className="mb-4 space-y-2" disabled={loading}>
+          <legend className="text-xs font-semibold text-stone-700">
+            Kết quả mô phỏng yêu cầu:
+          </legend>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setSimulateFail(false)}
+              aria-pressed={!simulateFail}
+              className={`rounded-xl border p-3 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                !simulateFail
+                  ? 'border-emerald-600 bg-emerald-50 text-emerald-900 ring-1 ring-emerald-600'
+                  : 'border-stone-200 text-stone-700 hover:bg-stone-50'
+              }`}
+            >
+              <span className="block font-bold">SUCCESS</span>
+              <span className="mt-1 block text-[10px] text-stone-500">
+                simulateFail: false
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSimulateFail(true)}
+              aria-pressed={simulateFail}
+              className={`rounded-xl border p-3 text-left text-xs transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                simulateFail
+                  ? 'border-red-600 bg-red-50 text-red-900 ring-1 ring-red-600'
+                  : 'border-stone-200 text-stone-700 hover:bg-stone-50'
+              }`}
+            >
+              <span className="block font-bold">FAILED</span>
+              <span className="mt-1 block text-[10px] text-stone-500">
+                simulateFail: true
+              </span>
+            </button>
+          </div>
+          <p className="text-[11px] text-stone-500" role="status">
+            Đây là kịch bản gửi đến API. Kết quả thực tế chỉ hiển thị sau khi
+            backend xác nhận.
+          </p>
+        </fieldset>
 
-        {/* Tổng tiền */}
-        <div className="flex justify-between items-center mb-5 px-1">
+        <div className="mb-5 flex items-center justify-between gap-3 px-1">
           <span className="text-sm font-medium text-stone-600">Tổng thanh toán:</span>
-          <span className="text-lg font-black text-amber-800">
+          <span className="shrink-0 text-lg font-black text-amber-800">
             {totalPrice.toLocaleString('vi-VN')}đ
           </span>
         </div>
 
-        {/* Nút thao tác */}
-        <div className="flex gap-2.5">
+        {cancelError && (
+          <p className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800" role="alert">
+            {cancelError}
+          </p>
+        )}
+
+        <div className="flex flex-col-reverse gap-2.5 sm:flex-row">
           <button
             type="button"
             onClick={onClose}
-            disabled={loading}
-            className="flex-1 py-2.5 rounded-xl border border-stone-300 text-stone-700 font-semibold text-xs hover:bg-stone-50 transition"
+            disabled={loading || cancelling}
+            className="flex-1 rounded-xl border border-stone-300 py-2.5 text-xs font-semibold text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Quay lại
           </button>
           <button
             type="button"
             onClick={() => selectedMethod && onConfirm(selectedMethod, simulateFail)}
-            disabled={loading || !selectedMethod}
-            className="flex-1 py-2.5 rounded-xl bg-[#1b120d] text-white font-semibold text-xs hover:bg-[#2a1b12] shadow transition active:scale-[0.99] flex items-center justify-center gap-1.5 disabled:opacity-50"
+            disabled={loading || !selectedMethod || items.length === 0}
+            className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#1b120d] py-2.5 text-xs font-semibold text-white shadow transition hover:bg-[#2a1b12] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <CheckCircle className="w-4 h-4 text-emerald-400" />
-            <span>{loading ? 'Đang xử lý...' : 'Thanh toán ngay'}</span>
+            {loading ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+            ) : (
+              <CheckCircle aria-hidden="true" className="h-4 w-4 text-emerald-400" />
+            )}
+            <span aria-live="polite">
+              {loading ? 'Đang xử lý...' : 'Thanh toán ngay'}
+            </span>
           </button>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

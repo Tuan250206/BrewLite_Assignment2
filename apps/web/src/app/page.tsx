@@ -1,18 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Coffee, Plus, ShoppingBag, Loader2, Minus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { getProductImageUrl } from "@/lib/product-image";
 import Link from "next/link";
-import { useCartStore } from "@/stores/cartStore";
+import { useCartStore, type CartItem } from "@/stores/cartStore";
 import UserNav from "@/components/layout/UserNav";
 import AuthModal from "@/components/auth/AuthModal";
 import CheckoutConfirmModal from '@/components/cart/CheckoutConfirmModal';
 import OrderSuccessModal from '@/components/cart/OrderSuccessModal';
 import OutOfStockModal from '@/components/cart/OutOfStockModal';
 import PaymentFailedModal from '@/components/cart/PaymentFailedModal';
-import PaymentQrModal from '@/components/cart/PaymentQrModal';
+import { fetchMyOrders, getApiErrorMessage } from '@/lib/orders-api';
+
+const EXIT_CANCEL_NOTICE_KEY = 'brewlite-pending-cancel-notice';
 
 interface BackendProduct {
   id: string | number;
@@ -22,28 +24,9 @@ interface BackendProduct {
   stock: number;
 }
 
-interface PaymentGatewaySession {
-  orderId: string;
-  name: string;
-  transactionId: string;
-  paymentUrl: string;
-  qrCodeDataUrl: string;
-  mockEmail: MockPaymentEmail | null;
-}
-
-interface MockPaymentEmail {
-  to: string;
-  from: string;
-  subject: string;
-  orderId: string;
-  transactionId: string;
-  amount: number;
-  method: string;
-  testAccount: string;
-  testCredential: string;
-  confirmationUrl: string;
-  expiresAt: string;
-}
+type BackendProductResponse = Omit<BackendProduct, 'price'> & {
+  price: number | string;
+};
 
 const formatPrice = (value: number) =>
   new Intl.NumberFormat("vi-VN", {
@@ -52,13 +35,61 @@ const formatPrice = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
+function getCancellationStatus(data: unknown): string | null {
+  if (typeof data !== 'object' || data === null) return null;
+  if ('status' in data && typeof data.status === 'string') return data.status;
+  if (
+    'order' in data &&
+    typeof data.order === 'object' &&
+    data.order !== null &&
+    'status' in data.order &&
+    typeof data.order.status === 'string'
+  ) {
+    return data.order.status;
+  }
+  return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+// Sau khi POST /payments trả SUCCESS, gọi thêm 1 lần để đối chiếu trạng thái đơn
+// với backend trước khi báo thành công cho khách.
+async function fetchOrderStatusAfterPayment(
+  orderId: string,
+  token: string,
+): Promise<string | null> {
+  try {
+    const response = await fetch(
+      `http://localhost:3001/payments/orders/${encodeURIComponent(orderId)}/status`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!response.ok) return null;
+    const data: unknown = await response.json();
+    if (!isRecord(data)) return null;
+    if (typeof data.orderStatus === 'string') return data.orderStatus;
+    if (typeof data.status === 'string') return data.status;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchProducts(): Promise<BackendProduct[]> {
   const response = await fetch("http://localhost:3001/products");
   if (!response.ok) {
     throw new Error("Lỗi khi tải danh sách sản phẩm");
   }
 
-  return response.json();
+  const products: BackendProductResponse[] = await response.json();
+  return products.map((product) => {
+    const price = Number(product.price);
+    if (!Number.isFinite(price)) {
+      throw new Error(`Giá sản phẩm không hợp lệ: ${product.name}`);
+    }
+    return { ...product, price };
+  });
 }
 
 export default function Home() {
@@ -83,7 +114,15 @@ export default function Home() {
   const clearCart = useCartStore((state) => state.clearCart);
   const [successOrderId, setSuccessOrderId] = useState<string | null>(null);
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
-  const [paymentGatewaySession, setPaymentGatewaySession] = useState<PaymentGatewaySession | null>(null);
+  const [retryOrder, setRetryOrder] = useState<{
+    id: string;
+    items: CartItem[];
+    total: number;
+  } | null>(null);
+  const [pendingCancelError, setPendingCancelError] = useState<string | null>(null);
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false);
+  const [exitCancelNotice, setExitCancelNotice] = useState<string | null>(null);
+  const cancellationInFlightRef = useRef(false);
   
   const loadProducts = async () => {
     const data = await fetchProducts();
@@ -109,8 +148,8 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    const userStr = localStorage.getItem('currentUser');
+    const token = sessionStorage.getItem('accessToken');
+    const userStr = sessionStorage.getItem('currentUser');
     if (token && userStr) {
       queueMicrotask(() => {
         try {
@@ -122,9 +161,78 @@ export default function Home() {
     }
   }, []);
 
+  useEffect(() => {
+    const storedNotice = window.sessionStorage.getItem(EXIT_CANCEL_NOTICE_KEY);
+    if (!storedNotice) return;
+
+    queueMicrotask(() => {
+      setExitCancelNotice(
+        `Đã gửi yêu cầu hủy đơn ${storedNotice} khi rời luồng thanh toán, nhưng chưa nhận được xác nhận từ backend. Hãy kiểm tra Lịch sử đơn hàng.`,
+      );
+      window.sessionStorage.removeItem(EXIT_CANCEL_NOTICE_KEY);
+    });
+  }, []);
+
+  useEffect(() => {
+    const retryOrderId = new URLSearchParams(window.location.search).get(
+      'retryOrderId',
+    );
+    if (!retryOrderId) return;
+
+    const token = window.sessionStorage.getItem('accessToken');
+    if (!token) {
+      queueMicrotask(() => setShowAuthModal(true));
+      return;
+    }
+
+    const controller = new AbortController();
+    void fetchMyOrders(token, controller.signal)
+      .then((orders) => {
+        const order = orders.find((candidate) => candidate.id === retryOrderId);
+        if (!order || !['PAYMENT_FAILED', 'PENDING'].includes(order.status)) {
+          throw new Error('Đơn hàng không còn ở trạng thái có thể thanh toán lại.');
+        }
+        if (
+          order.items.length === 0 ||
+          order.items.some((item) => item.qty < 1)
+        ) {
+          throw new Error('Thông tin món trong đơn hàng không hợp lệ.');
+        }
+
+        const checkoutItems: CartItem[] = order.items.map((item) => ({
+          id: item.id,
+          productId: item.productId,
+          name: item.product?.name ?? 'Sản phẩm',
+          size: item.size as CartItem['size'],
+          topping: item.topping
+            ? item.topping.split(',').map((name) => name.trim()).filter(Boolean)
+            : null,
+          quantity: item.qty,
+          unitPrice: item.lineTotal / item.qty,
+        }));
+
+        window.history.replaceState(window.history.state, '', window.location.pathname);
+        setRetryOrder({ id: order.id, items: checkoutItems, total: order.total });
+        setPendingOrderId(order.id);
+        setPendingCancelError(null);
+        setCheckoutModalKey((key) => key + 1);
+        setShowConfirmModal(true);
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        alert(
+          error instanceof Error
+            ? error.message
+            : 'Không thể tải đơn hàng để thanh toán lại.',
+        );
+      });
+
+    return () => controller.abort();
+  }, [currentUser]);
+
   const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('currentUser');
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('currentUser');
     clearCart();
     setCurrentUser(null);
   };
@@ -135,7 +243,7 @@ export default function Home() {
       return;
     }
 
-    const token = localStorage.getItem('accessToken');
+    const token = sessionStorage.getItem('accessToken');
     if (!token) {
       setShowAuthModal(true);
       return;
@@ -161,12 +269,16 @@ export default function Home() {
         body: JSON.stringify(orderPayload),
       });
 
-      const orderData = await orderRes.json();
+      const orderData: unknown = await orderRes.json().catch(() => null);
       if (!orderRes.ok) {
-        throw new Error(orderData.message || 'Tạo đơn hàng thất bại');
+        throw new Error(getApiErrorMessage(orderData, 'Tạo đơn hàng thất bại'));
+      }
+      if (!isRecord(orderData) || orderData.id === undefined) {
+        throw new Error('Dịch vụ đơn hàng trả về dữ liệu không hợp lệ.');
       }
 
       setCheckoutModalKey((key) => key + 1);
+      setPendingCancelError(null);
       setPendingOrderId(String(orderData.id));
 
       setShowConfirmModal(true);
@@ -187,21 +299,22 @@ export default function Home() {
     method: 'WALLET' | 'CARD',
     simulateFail: boolean,
   ) => {
-    const token = localStorage.getItem('accessToken');
+    const token = sessionStorage.getItem('accessToken');
     if (!token) {
       setShowConfirmModal(false);
       setShowAuthModal(true);
       return;
     }
 
-    if (!pendingOrderId) {
+    const orderId = pendingOrderId;
+    if (!orderId) {
       alert('Không tìm thấy mã đơn hàng cần thanh toán!');
       return;
     }
 
     setIsCheckingOut(true);
     try {
-      // 2. Gửi yêu cầu khởi tạo thanh toán sang cổng thanh toán thử nghiệm.
+      // 2. Gửi yêu cầu thanh toán mô phỏng; backend gọi Mock Gateway và trả kết quả đồng bộ.
       const paymentRes = await fetch('http://localhost:3001/payments', {
         method: 'POST',
         headers: {
@@ -210,41 +323,67 @@ export default function Home() {
           'Idempotency-Key': crypto.randomUUID(),
         },
         body: JSON.stringify({
-          orderId: pendingOrderId,
+          orderId,
           method: method,
           simulateFail,
         }),
       });
 
-      const paymentData = await paymentRes.json();
+      const paymentData: unknown = await paymentRes.json().catch(() => null);
 
-      if (!paymentRes.ok || !paymentData.success) {
-        const paymentMessage = Array.isArray(paymentData.message)
-          ? paymentData.message.join(', ')
-          : String(paymentData.message || 'Không thể khởi tạo thanh toán');
-        throw new Error(paymentMessage);
+      if (!paymentRes.ok) {
+        throw new Error(
+          getApiErrorMessage(paymentData, 'Không thể khởi tạo thanh toán'),
+        );
+      }
+
+      const paymentStatus =
+        isRecord(paymentData) && typeof paymentData.status === 'string'
+          ? paymentData.status
+          : null;
+
+      if (paymentStatus === 'FAILED' || paymentStatus === 'PAYMENT_FAILED') {
+        setShowConfirmModal(false);
+        setPendingCancelError(null);
+        setPendingOrderId(null);
+        setPaymentFailedOrderId(orderId);
+        return;
+      }
+      if (paymentStatus !== 'SUCCESS') {
+        throw new Error('Cổng thanh toán trả về trạng thái không hợp lệ.');
+      }
+
+      // 3. Đối chiếu lại trạng thái đơn với backend trước khi báo thành công.
+      const reconciledStatus = await fetchOrderStatusAfterPayment(orderId, token);
+      if (reconciledStatus && reconciledStatus !== 'PAID') {
+        throw new Error(
+          `Đơn hàng chưa được ghi nhận PAID (trạng thái hiện tại: ${reconciledStatus}).`,
+        );
       }
 
       setShowConfirmModal(false);
-      if (paymentData.status === 'PAYMENT_FAILED') {
-        setPendingOrderId(null);
-        setPaymentFailedOrderId(pendingOrderId);
-        return;
+      setPendingCancelError(null);
+      setPendingOrderId(null);
+      if (retryOrder?.id !== orderId) clearCart();
+      setRetryOrder(null);
+      setSuccessOrderId(orderId);
+      try {
+        await loadProducts();
+      } catch (refreshError) {
+        console.error(
+          'Thanh toán thành công nhưng không tải lại được tồn kho:',
+          refreshError,
+        );
+        setProductsError(
+          'Thanh toán thành công nhưng chưa cập nhật được tồn kho. Vui lòng tải lại trang.',
+        );
       }
-      if (!paymentData.gateway) {
-        throw new Error('Cổng thanh toán chưa trả về thông tin giao dịch');
-      }
-
-      setPaymentGatewaySession({
-        ...paymentData.gateway,
-        orderId: pendingOrderId,
-        mockEmail: paymentData.mockEmail,
-      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '';
       if (/stock|tồn kho|hết hàng|hết sản phẩm/i.test(message)) {
         setShowConfirmModal(false);
         setPendingOrderId(null);
+        setRetryOrder(null);
         setOutOfStockMessage(message);
         try {
           await loadProducts();
@@ -263,7 +402,7 @@ export default function Home() {
   const updateFailedOrder = async (action: 'retry-payment' | 'cancel') => {
     if (!paymentFailedOrderId) return;
 
-    const token = localStorage.getItem('accessToken');
+    const token = sessionStorage.getItem('accessToken');
     if (!token) {
       setPaymentFailedOrderId(null);
       setShowAuthModal(true);
@@ -279,15 +418,15 @@ export default function Home() {
           headers: { Authorization: `Bearer ${token}` },
         },
       );
-      const data = await response.json();
+      const data: unknown = await response.json().catch(() => null);
       if (!response.ok) {
-        const message = Array.isArray(data.message)
-          ? data.message.join(', ')
-          : String(data.message || 'Không thể cập nhật trạng thái đơn hàng');
-        throw new Error(message);
+        throw new Error(
+          getApiErrorMessage(data, 'Không thể cập nhật trạng thái đơn hàng'),
+        );
       }
 
       if (action === 'retry-payment') {
+        setPendingCancelError(null);
         setPendingOrderId(paymentFailedOrderId);
         setCheckoutModalKey((key) => key + 1);
         setPaymentFailedOrderId(null);
@@ -295,6 +434,7 @@ export default function Home() {
       } else {
         setPendingOrderId(null);
         setPaymentFailedOrderId(null);
+        setRetryOrder(null);
       }
     } catch (error) {
       alert(
@@ -317,35 +457,107 @@ export default function Home() {
     }
   };
   const handleCancelPendingOrder = async () => {
-    if (pendingOrderId) {
-      try {
-        const token = localStorage.getItem('accessToken');
-        if (token) {
-          await fetch(`http://localhost:3001/orders/${pendingOrderId}/cancel`, {
-            method: 'PATCH',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-        }
-      } catch (err) {
-        console.error('Lỗi khi hủy đơn hàng chờ:', err);
-      } finally {
-        // Đặt lại state sau khi hủy
-        setPendingOrderId(null);
-      }
+    if (!pendingOrderId) {
+      setShowConfirmModal(false);
+      setRetryOrder(null);
+      return;
     }
-    setShowConfirmModal(false);
+
+    const token = sessionStorage.getItem('accessToken');
+    if (!token) {
+      setPendingCancelError(
+        `Chưa xác nhận hủy đơn ${pendingOrderId}: không tìm thấy phiên đăng nhập.`,
+      );
+      return;
+    }
+
+    cancellationInFlightRef.current = true;
+    setIsCancellingOrder(true);
+    setPendingCancelError(null);
+    try {
+      const response = await fetch(
+        `http://localhost:3001/orders/${encodeURIComponent(pendingOrderId)}/cancel`,
+        {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      const data: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = getApiErrorMessage(
+          data,
+          `Backend từ chối yêu cầu (HTTP ${response.status}).`,
+        );
+        throw new Error(message);
+      }
+      if (getCancellationStatus(data) !== 'CANCELLED') {
+        throw new Error('Backend chưa xác nhận trạng thái CANCELLED.');
+      }
+
+      window.sessionStorage.removeItem(EXIT_CANCEL_NOTICE_KEY);
+      setPendingCancelError(null);
+      setExitCancelNotice(`Backend đã xác nhận hủy đơn ${pendingOrderId}.`);
+      setPendingOrderId(null);
+      setRetryOrder(null);
+      setShowConfirmModal(false);
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message : 'Không nhận được phản hồi hợp lệ.';
+      setPendingCancelError(
+        `Chưa xác nhận hủy đơn ${pendingOrderId}. ${reason} Đơn có thể vẫn đang PENDING; hãy kiểm tra trạng thái trước khi tiếp tục.`,
+      );
+    } finally {
+      cancellationInFlightRef.current = false;
+      setIsCancellingOrder(false);
+    }
   };
 
-  const handleClosePaymentQr = () => {
-    setPaymentGatewaySession(null);
-    void handleCancelPendingOrder();
-  };
+  useEffect(() => {
+    if (!pendingOrderId || !showConfirmModal) return;
+
+    const handlePageHide = () => {
+      if (cancellationInFlightRef.current) return;
+
+      const token = window.sessionStorage.getItem('accessToken');
+      if (!token) return;
+
+      cancellationInFlightRef.current = true;
+      window.sessionStorage.setItem(EXIT_CANCEL_NOTICE_KEY, pendingOrderId);
+      void fetch(
+        `http://localhost:3001/orders/${encodeURIComponent(pendingOrderId)}/cancel`,
+        {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}` },
+          keepalive: true,
+        },
+      )
+        .then(async (response) => {
+          if (!response.ok) return;
+          const result: unknown = await response.json().catch(() => null);
+          if (getCancellationStatus(result) === 'CANCELLED') {
+            window.sessionStorage.removeItem(EXIT_CANCEL_NOTICE_KEY);
+          }
+        })
+        .catch((error: unknown) => {
+          console.error('Không thể gửi yêu cầu hủy khi rời trang:', error);
+        });
+    };
+
+    window.addEventListener('pagehide', handlePageHide);
+    return () => window.removeEventListener('pagehide', handlePageHide);
+  }, [pendingOrderId, showConfirmModal]);
 
 
   return (
     <div className="min-h-screen bg-[#f7f2eb] text-stone-900">
+      {exitCancelNotice && (
+        <p
+          className="fixed bottom-4 left-1/2 z-[80] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 shadow-lg"
+          role="status"
+        >
+          {exitCancelNotice}
+        </p>
+      )}
       <header className="sticky top-0 z-20 border-b border-stone-200/80 bg-[#f7f2eb]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
@@ -612,9 +824,11 @@ export default function Home() {
         isOpen={showConfirmModal}
         onClose={handleCancelPendingOrder}
         onConfirm={handleConfirmOrder}
-        items={cartList}
-        totalPrice={subtotal}
+        items={retryOrder?.items ?? cartList}
+        totalPrice={retryOrder?.total ?? subtotal}
         loading={isCheckingOut}
+        cancelError={pendingCancelError}
+        cancelling={isCancellingOrder}
       />
       <OutOfStockModal
         isOpen={outOfStockMessage !== null}
@@ -626,40 +840,6 @@ export default function Home() {
         loading={isUpdatingFailedOrder}
         onRetry={() => updateFailedOrder('retry-payment')}
         onCancel={() => updateFailedOrder('cancel')}
-      />
-      <PaymentQrModal
-        key={paymentGatewaySession?.transactionId ?? 'no-payment-session'}
-        session={paymentGatewaySession}
-        onClose={handleClosePaymentQr}
-        onConfirmed={(orderId) => {
-          clearCart();
-          setPendingOrderId(null);
-          setPaymentGatewaySession(null);
-          setSuccessOrderId(orderId);
-          void loadProducts().catch((refreshError) => {
-            console.error(
-              'Thanh toán thành công nhưng không tải lại được tồn kho:',
-              refreshError,
-            );
-            setProductsError(
-              'Thanh toán thành công nhưng chưa cập nhật được tồn kho. Vui lòng tải lại trang.',
-            );
-          });
-        }}
-        onFailed={(orderId) => {
-          setPendingOrderId(null);
-          setPaymentGatewaySession(null);
-          setPaymentFailedOrderId(orderId);
-          void loadProducts().catch((refreshError) => {
-            console.error(
-              'Không thể cập nhật tồn kho sau khi thanh toán thất bại:',
-              refreshError,
-            );
-            setProductsError(
-              'Không thể cập nhật tồn kho. Vui lòng tải lại trang.',
-            );
-          });
-        }}
       />
     </div>
   );
