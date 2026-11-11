@@ -3,7 +3,7 @@ skinparam responseMessageBelowArrow true
 skinparam BoxPadding 10
 skinparam ParticipantPadding 10
 skinparam Shadowing false
-skinparam RoundCorner 0
+skinparam RoundCorner 2
 skinparam SequenceLifeLineBackgroundColor white
 skinparam SequenceLifeLineBorderColor #444444
 
@@ -14,79 +14,78 @@ database "Database" as DB
 participant "Payment Service\n(Mock Gateway)" as Payment
 
 activate User
-User -> UI: Nhấn tiến hành thanh toán
+User -> UI: Nhấn "Tiến hành đặt đơn"
 activate UI
 
-UI -> API: POST /orders (danh sách món, token)
+UI -> API: POST /orders (items, size, topping)\n[Header: Bearer JWT Token]
 activate API
-API -> API: Kiểm tra JWT & tính hợp lệ của giỏ hàng
 
-API -> DB: Mở Transaction & Khóa kiểm tra tồn kho
+API -> API: Kiểm tra JWT Token & Validate dữ liệu giỏ hàng
+
+API -> DB: Lấy giá gốc DB & Kiểm tra tồn kho sản phẩm
 activate DB
-DB --> API: Trả về số lượng tồn kho
+DB --> API: Trả về trạng thái dữ liệu và số lượng tồn
 
-alt Hết hàng (Out of Stock)
-    API -> DB: Rollback hủy giao dịch
-    API --> UI: 400 Bad Request (Thông báo hết hàng)
-    UI --> User: Hiển thị cảnh báo hết sản phẩm
-else Còn hàng (In Stock)
-    API -> DB: Tạo đơn hàng mới (Trạng thái PENDING)
-    API -> DB: Trừ số lượng tồn kho
-    API -> DB: Commit chốt lưu giao dịch
-    API --> UI: 201 Created (mã đơn hàng, tổng tiền)
-    UI --> User: Mở Modal thanh toán (Chọn Ví/Thẻ & Khuyến mãi)
-end
+alt Không đủ hàng (Out of Stock / Invalid)
+    API --> UI: 400 Bad Request (Hết hàng / Sản phẩm không khả dụng)
+    UI --> User: Hiển thị thông báo không đủ hàng
+else Đủ hàng và dữ liệu hợp lệ
+    API -> DB: BEGIN TRANSACTION
+    API -> DB: INSERT Order (Trạng thái: PENDING, Tổng tiền)
+    API -> DB: INSERT OrderItems (size, topping, qty, lineTotal)
+    API -> DB: COMMIT TRANSACTION
+    DB --> API: Trả về Order ID
+    API --> UI: 201 Created (orderId, totalAmount, status: PENDING)
+    UI --> User: Hiển thị màn hình/Modal chọn phương thức thanh toán
 
-alt Khách hàng hủy đơn (User Cancels)
-    User -> UI: Nhấn nút quay lại / hủy
-    UI -> API: PATCH /orders/{id}/cancel
-    API -> DB: Cập nhật trạng thái CANCELLED & Hoàn trả tồn kho
-    DB --> API: Hoàn tất
-    API --> UI: 200 OK (Đã hủy đơn)
-    UI --> User: Đóng Modal thanh toán
+    User -> UI: Chọn phương thức (WALLET / CARD) & Nhấn "Xác nhận thanh toán"
+    UI -> API: POST /payments\n[Body: orderId, method]\n[Header: Idempotency-Key, Bearer Token]
 
-else Khách hàng xác nhận thanh toán (User Confirms Payment)
-    User -> UI: Chọn Ví/Thẻ và nhấn xác nhận thanh toán
-    UI -> API: POST /payments (mã đơn, phương thức)\n[Header: Idempotency-Key, Bearer Token]
+    API -> DB: Kiểm tra trạng thái đơn & Idempotency-Key
+    DB --> API: Kết quả kiểm tra (Thông tin đơn & Key)
 
-    API -> DB: Kiểm tra Idempotency-Key
-    DB --> API: Trạng thái yêu cầu
+    alt Yêu cầu lặp lại (Idempotent Retry - Đã xử lý)
+        API --> UI: 200 OK (Trả về kết quả giao dịch đã lưu trước đó)
+        UI --> User: Hiển thị trạng thái giao dịch đã hoàn tất
+    else Yêu cầu thanh toán mới (Key hợp lệ)
+        API -> Payment: POST /mock-gateway/pay (orderId, amount, method, Idempotency-Key)
+        activate Payment
 
-    API -> Payment: Yêu cầu xử lý thanh toán (mã đơn, số tiền, phương thức)
-    activate Payment
+        alt Thanh toán thành công (Payment Success)
+            Payment --> API: 200 OK (status: SUCCESS)
 
-    alt Thanh toán Thành công (Payment Success)
-        Payment --> User: Gửi email biên lai thanh toán (Mock Email)
-        Payment --> API: 200 OK (Thành công, mã giao dịch)
+            API -> DB: BEGIN TRANSACTION
+            API -> DB: INSERT Payment (SUCCESS, Idempotency-Key, amount, method)
+            API -> DB: UPDATE Order status = 'PAID'
+            API -> DB: Khấu trừ số lượng tồn kho (Deduct stock)
+            API -> DB: COMMIT TRANSACTION
+            DB --> API: Ghi nhận thành công
 
-        API -> DB: Mở Transaction
-        API -> DB: Cập nhật trạng thái đơn thành PAID
-        API -> DB: Lưu bản ghi thanh toán thành công
-        API -> DB: Commit chốt lưu giao dịch
+            API --> UI: 200 OK (Thanh toán thành công, status: PAID)
+            UI --> User: Hiển thị màn hình đặt hàng thành công & Điều hướng xem Lịch sử đơn
 
-        API --> UI: 200 OK (Thanh toán thành công)
-        UI --> User: Hiển thị màn hình đặt hàng thành công
+        else Thanh toán thất bại (Payment Failed)
+            Payment --> API: 400 Bad Request (status: FAILED)
+            deactivate Payment
 
-    else Thanh toán Thất bại (Payment Failed)
-        Payment --> API: 400 Bad Request (Thất bại, mã lỗi)
-        deactivate Payment
-
-        API -> DB: Cập nhật trạng thái đơn thành PAYMENT_FAILED
-        DB --> API: Hoàn tất
-
-        API --> UI: 400 Bad Request (Thanh toán thất bại)
-        UI --> User: Hiển thị Modal báo lỗi (Cho phép thử lại hoặc hủy)
-
-        alt Khách hàng chọn Thử lại
-            User -> UI: Nhấn nút thử lại
-            UI --> User: Giữ nguyên đơn, mở lại form thanh toán
-        else Khách hàng chọn Hủy đơn
-            User -> UI: Nhấn nút hủy bỏ
-            UI -> API: PATCH /orders/{id}/cancel
-            API -> DB: Hủy đơn hàng & Hoàn trả lại tồn kho
+            API -> DB: INSERT Payment (FAILED, Idempotency-Key)
+            API -> DB: UPDATE Order status = 'PAYMENT_FAILED'
             DB --> API: Hoàn tất
-            API --> UI: 200 OK (Đã hủy đơn)
-            UI --> User: Điều hướng quay về thực đơn chính
+
+            API --> UI: 400 Bad Request (Thanh toán thất bại, status: PAYMENT_FAILED)
+            UI --> User: Hiển thị thông báo thất bại (Thử lại hoặc Hủy đơn)
+
+            alt Khách hàng chọn Thử lại
+                User -> UI: Bấm "Thử thanh toán lại"
+                UI --> User: Tạo Idempotency-Key mới & Mở lại luồng chọn phương thức
+            else Khách hàng chọn Hủy đơn
+                User -> UI: Bấm "Hủy đơn"
+                UI -> API: PATCH /orders/{id}/cancel
+                API -> DB: UPDATE Order status = 'CANCELLED'
+                DB --> API: Hoàn tất
+                API --> UI: 200 OK (Đã hủy đơn)
+                UI --> User: Hiển thị thông báo đã hủy & Điều hướng về Menu
+            end
         end
     end
 end
