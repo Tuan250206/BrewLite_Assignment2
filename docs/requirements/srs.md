@@ -109,7 +109,7 @@ Tài liệu này đặc tả yêu cầu chức năng (FR), yêu cầu phi chức
 
 - **Use Case:** Hủy đơn hàng.
 - **Mô tả:** Khách hàng hoặc nhân viên quầy hủy đơn khi trạng thái và quyền thao tác cho phép.
-- **Ưu tiên:** Should.
+- **Ưu tiên:** Must.
 - **Tiêu chí chấp nhận:**
   1. Khách hàng chỉ hủy được đơn của mình khi đơn chưa thanh toán thành công.
   2. Nhân viên có thể hủy đơn đã thanh toán nhưng chưa bắt đầu pha chế theo quy tắc hệ thống.
@@ -121,7 +121,7 @@ Tài liệu này đặc tả yêu cầu chức năng (FR), yêu cầu phi chức
 
 - **Use Case:** Cập nhật trạng thái đơn hàng.
 - **Mô tả:** Nhân viên quầy cập nhật tiến trình xử lý đơn hàng.
-- **Ưu tiên:** Should.
+- **Ưu tiên:** Must.
 - **Tiêu chí chấp nhận:**
   1. Chỉ nhân viên quầy được phép cập nhật trạng thái xử lý đơn hàng.
   2. Đơn thanh toán thành công có thể chuyển lần lượt qua các trạng thái đang pha chế, sẵn sàng và hoàn thành.
@@ -149,7 +149,7 @@ Tài liệu này đặc tả yêu cầu chức năng (FR), yêu cầu phi chức
 
 ### NFR-03 – Tính khả dụng
 
-- **Ưu tiên:** Should.
+- **Ưu tiên:** Must.
 - **Tiêu chí chấp nhận:**
   1. Khi API và cơ sở dữ liệu hoạt động bình thường, endpoint kiểm tra sức khỏe hệ thống trả kết quả thành công.
   2. Khi cơ sở dữ liệu không khả dụng, endpoint kiểm tra sức khỏe phản ánh tình trạng lỗi thay vì báo hệ thống bình thường.
