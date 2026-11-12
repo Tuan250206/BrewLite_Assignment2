@@ -70,22 +70,28 @@ async function createPendingOrder(page: Page): Promise<void> {
 
 async function startPayment(page: Page, result: 'SUCCESS' | 'FAILED'): Promise<void> {
   const dialog = page.getByRole('dialog', { name: 'Xác nhận thanh toán' });
-  await dialog.getByRole('button', { name: /Kịch bản mô phỏng A/ }).click();
+  await dialog.getByRole('button', { name: /Ví BrewLite/ }).click();
   await dialog.getByRole('button', { name: new RegExp(result) }).click();
   await dialog.getByRole('button', { name: 'Thanh toán ngay' }).click();
 }
 
 async function openOrderHistoryBehindPendingModal(
   page: Page,
-  email: string,
-): Promise<void> {
-  await page
-    .getByRole('button', { name: new RegExp(email.split('@')[0]) })
-    .evaluate((button) => (button as HTMLButtonElement).click());
-  const historyLink = page.getByRole('link', { name: 'Đơn hàng của tôi' });
-  await historyLink.evaluate((link) => (link as HTMLAnchorElement).click());
-  await page.waitForURL('**/orders');
-  await expect(page.getByRole('heading', { name: 'Lịch sử đơn hàng' })).toBeVisible();
+): Promise<Page> {
+  const sessionEntries = await page.evaluate(() =>
+    Object.entries(window.sessionStorage),
+  );
+  const historyPage = await page.context().newPage();
+  await historyPage.addInitScript((entries) => {
+    for (const [key, value] of entries) {
+      window.sessionStorage.setItem(key, value);
+    }
+  }, sessionEntries);
+  await historyPage.goto('/orders', { waitUntil: 'domcontentloaded' });
+  await expect(
+    historyPage.getByRole('heading', { name: 'Lịch sử đơn hàng' }),
+  ).toBeVisible();
+  return historyPage;
 }
 
 test('đăng ký tài khoản qua Auth API thật', async ({ page }) => {
@@ -127,7 +133,7 @@ test('duy trì phiên đăng nhập thật sau khi tải lại trang', async ({ 
   await expect(
     page.getByRole('button', { name: new RegExp(email.split('@')[0]) }),
   ).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem('accessToken'))).toBeTruthy();
+  expect(await page.evaluate(() => sessionStorage.getItem('accessToken'))).toBeTruthy();
 });
 
 test('Mock Payment SUCCESS hiện xác nhận PAID và lịch sử không có nút hủy', async ({
@@ -184,12 +190,14 @@ test('PAYMENT_FAILED có thể thử thanh toán lại thành công', async ({ p
 });
 
 test('PENDING trong lịch sử không có nút hủy thủ công', async ({ page }) => {
-  const email = await registerAndLogin(page);
+  await registerAndLogin(page);
   await createPendingOrder(page);
-  await openOrderHistoryBehindPendingModal(page, email);
+  const historyPage = await openOrderHistoryBehindPendingModal(page);
 
-  await expect(page.getByText('Chờ thanh toán')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Hủy đơn' })).toHaveCount(0);
+  await expect(historyPage.getByText('Chờ thanh toán')).toBeVisible();
+  await expect(
+    historyPage.getByRole('button', { name: 'Hủy đơn' }),
+  ).toHaveCount(0);
 });
 
 test('Quay lại từ Checkout PENDING xác nhận CANCELLED', async ({ page }) => {

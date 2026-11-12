@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run src",
     "test:e2e": "playwright test",
+    "test:e2e:real": "playwright test --config=playwright.real.config.ts",
     "test:e2e:slow": "playwright test --config=playwright.slow.config.ts --headed --workers=1"
   },
   "dependencies": {
