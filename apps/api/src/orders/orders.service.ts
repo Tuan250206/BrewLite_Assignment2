@@ -62,21 +62,7 @@ export class OrdersService {
         for (const product of products) {
           const requestedQty = quantityByProductId.get(product.id)!;
 
-          const result = await tx.product.updateMany({
-            where: {
-              id: product.id,
-              stock: {
-                gte: requestedQty,
-              },
-            },
-            data: {
-              stock: {
-                decrement: requestedQty,
-              },
-            },
-          });
-
-          if (result.count !== 1) {
+          if (product.stock < requestedQty) {
             throw new ConflictException(
               `Sản phẩm ${product.name} không đủ tồn kho`,
             );
@@ -189,9 +175,6 @@ export class OrdersService {
           id: orderId,
           userId,
         },
-        include: {
-          orderItems: true,
-        },
       });
 
       if (!order) {
@@ -202,19 +185,6 @@ export class OrdersService {
         order.status,
         OrderStatus.CANCELLED,
       );
-
-      for (const item of order.orderItems) {
-        await tx.product.update({
-          where: {
-            id: item.productId,
-          },
-          data: {
-            stock: {
-              increment: item.qty,
-            },
-          },
-        });
-      }
 
       return tx.order.update({
         where: {

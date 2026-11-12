@@ -15,7 +15,6 @@ const allowedTransitions: Record<OrderStatus, OrderStatus[]> = {
 
   PAID: [
     OrderStatus.PREPARING,
-    OrderStatus.CANCELLED,
   ],
 
   PREPARING: [

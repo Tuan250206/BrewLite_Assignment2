@@ -7,9 +7,10 @@ import { AuthModule } from './auth/auth.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { PaymentsModule } from './payments/payments.module.js';
 import { HealthModule } from './health/health.module.js';
+import { MockGatewayModule } from './mock-gateway/mock-gateway.module.js';
 
 @Module({
-  imports: [PrismaModule, ProductsModule, AuthModule, OrdersModule, PaymentsModule, HealthModule],
+  imports: [PrismaModule, ProductsModule, AuthModule, OrdersModule, PaymentsModule, HealthModule, MockGatewayModule],
   controllers: [AppController],
   providers: [AppService],
 })

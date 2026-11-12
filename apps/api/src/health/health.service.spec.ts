@@ -8,7 +8,7 @@ describe('HealthService', () => {
   let healthService: HealthService;
 
   const mockPrismaService = {
-    $queryRaw: jest.fn(),
+    $queryRaw: jest.fn<() => Promise<unknown>>(),
   };
 
   beforeEach(async () => {
