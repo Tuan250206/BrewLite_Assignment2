@@ -1,18 +1,16 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, ArrowLeft, Package, RefreshCw, X } from 'lucide-react';
 import {
   fetchMyOrders,
+  updateMyOrder,
   OrdersApiError,
   type OrderHistoryEntry,
   type OrderStatus,
 } from '@/lib/orders-api';
-import {
-  isOrderPaymentMockEnabled,
-  orderPaymentFetch,
-} from '@/lib/order-payment-api';
 
 type PageState =
   | { kind: 'loading' }
@@ -53,6 +51,7 @@ function formatDate(value: string): string {
 }
 
 export default function OrdersPage() {
+  const router = useRouter();
   const [pageState, setPageState] = useState<PageState>({ kind: 'loading' });
   const [reloadKey, setReloadKey] = useState(0);
   const [cancelConfirmationOrderId, setCancelConfirmationOrderId] = useState<
@@ -60,10 +59,9 @@ export default function OrdersPage() {
   >(null);
   const [actionOrderId, setActionOrderId] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
-  const mockEnabled = isOrderPaymentMockEnabled();
 
   const loadOrders = useCallback(async (signal: AbortSignal): Promise<PageState | null> => {
-    const token = window.localStorage.getItem('accessToken');
+    const token = window.sessionStorage.getItem('accessToken');
     if (!token) {
       return { kind: 'unauthenticated' };
     }
@@ -90,6 +88,15 @@ export default function OrdersPage() {
     const controller = new AbortController();
     void loadOrders(controller.signal).then((nextState) => {
       if (nextState && !controller.signal.aborted) setPageState(nextState);
+    }).catch((error: unknown) => {
+      if (controller.signal.aborted) return;
+      setPageState({
+        kind: 'error',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Đã xảy ra lỗi khi tải lịch sử đơn hàng.',
+      });
     });
     return () => controller.abort();
   }, [loadOrders, reloadKey]);
@@ -101,9 +108,9 @@ export default function OrdersPage() {
 
   const updateOrder = async (
     orderId: string,
-    action: 'cancel' | 'retry-payment',
+    action: 'cancel',
   ) => {
-    const token = window.localStorage.getItem('accessToken');
+    const token = window.sessionStorage.getItem('accessToken');
     if (!token) {
       setPageState({ kind: 'unauthenticated' });
       setCancelConfirmationOrderId(null);
@@ -113,24 +120,7 @@ export default function OrdersPage() {
     setActionOrderId(orderId);
     setActionError('');
     try {
-      const response = await orderPaymentFetch(
-        `http://localhost:3001/orders/${encodeURIComponent(orderId)}/${action}`,
-        {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${token}` },
-        },
-      );
-      const data: unknown = await response.json();
-      if (!response.ok) {
-        const message =
-          typeof data === 'object' &&
-          data !== null &&
-          'message' in data &&
-          typeof data.message === 'string'
-            ? data.message
-            : 'Không thể cập nhật đơn hàng.';
-        throw new Error(message);
-      }
+      await updateMyOrder(token, orderId, action);
 
       setCancelConfirmationOrderId(null);
       setPageState({ kind: 'loading' });
@@ -304,24 +294,17 @@ export default function OrdersPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => void updateOrder(order.id, 'retry-payment')}
-                          disabled={!mockEnabled || actionOrderId !== null}
-                          aria-describedby={`retry-unavailable-${order.id}`}
+                          onClick={() =>
+                            router.push(
+                              `/?retryOrderId=${encodeURIComponent(order.id)}`,
+                            )
+                          }
+                          disabled={actionOrderId !== null}
                           className="rounded-xl bg-amber-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {actionOrderId === order.id
-                            ? 'Đang xử lý...'
-                            : 'Thử thanh toán lại'}
+                          Thử thanh toán lại
                         </button>
                       </div>
-                      <p
-                        id={`retry-unavailable-${order.id}`}
-                        className="mt-2 text-right text-xs text-stone-500"
-                      >
-                        {mockEnabled
-                          ? 'Thao tác chỉ cập nhật dữ liệu Mock trong phiên kiểm thử.'
-                          : 'Các thao tác đang chờ API Orders/Payments của TV3.'}
-                      </p>
                     </div>
                   )}
                 </article>
@@ -361,9 +344,8 @@ export default function OrdersPage() {
             >
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <p>
-                {mockEnabled
-                  ? 'Chỉ áp dụng cho đơn PAYMENT_FAILED. Xác nhận sẽ hủy đơn Mock trong phiên kiểm thử; không thay đổi dữ liệu backend thật.'
-                  : 'Chỉ áp dụng cho đơn PAYMENT_FAILED. API Orders/Payments của TV3 chưa khả dụng; đơn hàng chưa bị thay đổi.'}
+                Chỉ áp dụng cho đơn PAYMENT_FAILED. Xác nhận sẽ hủy đơn hàng này
+                và cập nhật trạng thái CANCELLED.
               </p>
             </div>
             {actionError && (
@@ -386,14 +368,10 @@ export default function OrdersPage() {
                   cancelConfirmationOrderId &&
                   void updateOrder(cancelConfirmationOrderId, 'cancel')
                 }
-                disabled={!mockEnabled || actionOrderId !== null}
+                disabled={actionOrderId !== null}
                 className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {actionOrderId
-                  ? 'Đang xử lý...'
-                  : mockEnabled
-                    ? 'Hủy đơn Mock'
-                    : 'Chờ API TV3'}
+                {actionOrderId ? 'Đang xử lý...' : 'Xác nhận hủy đơn'}
               </button>
             </div>
           </section>

@@ -54,7 +54,11 @@ export default function ProductDetailPage() {
         return res.json();
       })
       .then((data) => {
-        setProduct(data);
+        const price = Number(data.price);
+        if (!Number.isFinite(price)) {
+          throw new Error('Giá sản phẩm không hợp lệ');
+        }
+        setProduct({ ...data, price });
         setLoading(false);
       })
             .catch((err) => {
@@ -75,7 +79,7 @@ export default function ProductDetailPage() {
 
   // Tính giá đơn vị sản phẩm (Giá gốc + Size + Topping)
   const unitPrice = useMemo(() => {
-    const base = product?.price || 45000;
+    const base = product?.price ?? 45000;
     const toppingTotal = selectedToppings.reduce((sum, tId) => {
       const item = TOPPING_OPTIONS.find((t) => t.id === tId);
       return sum + (item ? item.price : 0);
