@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const password = 'BrewLite-E2E-Password-2026';
+const API_BASE_URL = 'http://127.0.0.1:3001';
 
 function uniqueEmail(): string {
   return `e2e-${randomUUID()}@example.com`;
@@ -68,24 +69,46 @@ async function createPendingOrder(page: Page): Promise<void> {
   ).toBeVisible();
 }
 
-async function startPayment(page: Page, result: 'SUCCESS' | 'FAILED'): Promise<void> {
+async function startPayment(
+  page: Page,
+  result: 'SUCCESS' | 'FAILED',
+  method: 'WALLET' | 'CARD' = 'WALLET',
+): Promise<void> {
   const dialog = page.getByRole('dialog', { name: 'Xác nhận thanh toán' });
-  await dialog.getByRole('button', { name: /Kịch bản mô phỏng A/ }).click();
+  await dialog
+    .getByRole('button', {
+      name: method === 'WALLET' ? 'Ví BrewLite' : 'Thẻ ngân hàng',
+    })
+    .click();
   await dialog.getByRole('button', { name: new RegExp(result) }).click();
   await dialog.getByRole('button', { name: 'Thanh toán ngay' }).click();
 }
 
-async function openOrderHistoryBehindPendingModal(
-  page: Page,
-  email: string,
-): Promise<void> {
-  await page
-    .getByRole('button', { name: new RegExp(email.split('@')[0]) })
-    .evaluate((button) => (button as HTMLButtonElement).click());
-  const historyLink = page.getByRole('link', { name: 'Đơn hàng của tôi' });
-  await historyLink.evaluate((link) => (link as HTMLAnchorElement).click());
-  await page.waitForURL('**/orders');
-  await expect(page.getByRole('heading', { name: 'Lịch sử đơn hàng' })).toBeVisible();
+function readAccessToken(page: Page): Promise<string> {
+  return page.evaluate(() => sessionStorage.getItem('accessToken') ?? '');
+}
+
+async function createPendingOrderViaApi(page: Page): Promise<void> {
+  const token = await readAccessToken(page);
+  expect(token).not.toBe('');
+
+  const productsResponse = await page.request.get(`${API_BASE_URL}/products`);
+  expect(productsResponse.ok()).toBeTruthy();
+  const products = (await productsResponse.json()) as Array<{
+    id: string;
+    stock: number;
+  }>;
+
+  const product = products.find((candidate) => candidate.stock > 0);
+  if (!product) {
+    throw new Error('Không có sản phẩm nào còn hàng để tạo đơn PENDING.');
+  }
+
+  const orderResponse = await page.request.post(`${API_BASE_URL}/orders`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { items: [{ productId: product.id, size: 'M', qty: 1 }] },
+  });
+  expect(orderResponse.ok()).toBeTruthy();
 }
 
 test('đăng ký tài khoản qua Auth API thật', async ({ page }) => {
@@ -127,7 +150,7 @@ test('duy trì phiên đăng nhập thật sau khi tải lại trang', async ({ 
   await expect(
     page.getByRole('button', { name: new RegExp(email.split('@')[0]) }),
   ).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem('accessToken'))).toBeTruthy();
+  expect(await page.evaluate(() => sessionStorage.getItem('accessToken'))).toBeTruthy();
 });
 
 test('Mock Payment SUCCESS hiện xác nhận PAID và lịch sử không có nút hủy', async ({
@@ -184,10 +207,13 @@ test('PAYMENT_FAILED có thể thử thanh toán lại thành công', async ({ p
 });
 
 test('PENDING trong lịch sử không có nút hủy thủ công', async ({ page }) => {
-  const email = await registerAndLogin(page);
-  await createPendingOrder(page);
-  await openOrderHistoryBehindPendingModal(page, email);
+  await registerAndLogin(page);
+  await createPendingOrderViaApi(page);
 
+  await page.goto('/orders', { waitUntil: 'domcontentloaded' });
+  await expect(
+    page.getByRole('heading', { name: 'Lịch sử đơn hàng' }),
+  ).toBeVisible();
   await expect(page.getByText('Chờ thanh toán')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Hủy đơn' })).toHaveCount(0);
 });
