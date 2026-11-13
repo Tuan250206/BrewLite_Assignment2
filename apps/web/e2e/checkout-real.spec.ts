@@ -32,6 +32,7 @@ test('đặt món, thanh toán SUCCESS qua API thật và xem lịch sử PAID',
 }) => {
   const email = uniqueEmail();
   await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: 'Đăng nhập' }).click();
 
   const authDialog = page.getByRole('dialog');
@@ -176,4 +177,67 @@ test('đặt món, thanh toán SUCCESS qua API thật và xem lịch sử PAID',
     .locator('article')
     .filter({ hasText: `Đơn hàng #${orderId.slice(0, 8)}` });
   await expect(orderCard).toContainText('Đã thanh toán');
+});
+
+test('PENDING trong lịch sử không có nút hủy thủ công', async ({ page }) => {
+  const email = uniqueEmail();
+
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('button', { name: 'Đăng nhập' }).click();
+
+  const authDialog = page.getByRole('dialog');
+  await expect(
+    authDialog.getByRole('heading', { name: 'Đăng nhập BrewLite' }),
+  ).toBeVisible();
+  await authDialog.getByRole('button', { name: 'Đăng ký', exact: true }).click();
+  await authDialog.getByLabel('Email').fill(email);
+  await authDialog.getByLabel('Mật khẩu', { exact: true }).fill(password);
+  await authDialog.getByLabel('Nhập lại mật khẩu').fill(password);
+  await authDialog
+    .locator('form')
+    .getByRole('button', { name: 'Tạo tài khoản' })
+    .click();
+  await expect(
+    authDialog
+      .getByRole('status')
+      .getByText('Đăng ký thành công. Vui lòng đăng nhập.'),
+  ).toBeVisible();
+
+  await authDialog.getByLabel('Email').fill(email);
+  await authDialog.getByLabel('Mật khẩu', { exact: true }).fill(password);
+  await authDialog
+    .locator('form')
+    .getByRole('button', { name: 'Đăng nhập' })
+    .click();
+  await expect(authDialog).toBeHidden();
+
+  const token = await page.evaluate(
+    () => sessionStorage.getItem('accessToken') ?? '',
+  );
+  expect(token).not.toBe('');
+
+  const productsResponse = await page.request.get(`${apiOrigin}/products`);
+  expect(productsResponse.ok()).toBe(true);
+  const products = (await productsResponse.json()) as Array<{
+    id: string;
+    stock: number;
+  }>;
+  const product = products.find((candidate) => candidate.stock > 0);
+  if (!product) {
+    throw new Error('Không có sản phẩm nào còn hàng để tạo đơn PENDING.');
+  }
+
+  const orderResponse = await page.request.post(`${apiOrigin}/orders`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { items: [{ productId: product.id, size: 'M', qty: 1 }] },
+  });
+  expect(orderResponse.ok()).toBe(true);
+
+  await page.goto('/orders', { waitUntil: 'domcontentloaded' });
+  await expect(
+    page.getByRole('heading', { name: 'Lịch sử đơn hàng' }),
+  ).toBeVisible();
+  await expect(page.getByText('Chờ thanh toán')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Hủy đơn' })).toHaveCount(0);
 });

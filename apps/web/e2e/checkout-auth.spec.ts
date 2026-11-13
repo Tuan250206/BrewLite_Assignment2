@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const password = 'BrewLite-E2E-Password-2026';
-const API_BASE_URL = 'http://127.0.0.1:3001';
 
 function uniqueEmail(): string {
   return `e2e-${randomUUID()}@example.com`;
@@ -82,33 +81,6 @@ async function startPayment(
     .click();
   await dialog.getByRole('button', { name: new RegExp(result) }).click();
   await dialog.getByRole('button', { name: 'Thanh toán ngay' }).click();
-}
-
-function readAccessToken(page: Page): Promise<string> {
-  return page.evaluate(() => sessionStorage.getItem('accessToken') ?? '');
-}
-
-async function createPendingOrderViaApi(page: Page): Promise<void> {
-  const token = await readAccessToken(page);
-  expect(token).not.toBe('');
-
-  const productsResponse = await page.request.get(`${API_BASE_URL}/products`);
-  expect(productsResponse.ok()).toBeTruthy();
-  const products = (await productsResponse.json()) as Array<{
-    id: string;
-    stock: number;
-  }>;
-
-  const product = products.find((candidate) => candidate.stock > 0);
-  if (!product) {
-    throw new Error('Không có sản phẩm nào còn hàng để tạo đơn PENDING.');
-  }
-
-  const orderResponse = await page.request.post(`${API_BASE_URL}/orders`, {
-    headers: { Authorization: `Bearer ${token}` },
-    data: { items: [{ productId: product.id, size: 'M', qty: 1 }] },
-  });
-  expect(orderResponse.ok()).toBeTruthy();
 }
 
 test('đăng ký tài khoản qua Auth API thật', async ({ page }) => {
@@ -204,18 +176,6 @@ test('PAYMENT_FAILED có thể thử thanh toán lại thành công', async ({ p
   await expect(
     page.getByRole('heading', { name: 'Thanh toán thành công' }),
   ).toBeVisible();
-});
-
-test('PENDING trong lịch sử không có nút hủy thủ công', async ({ page }) => {
-  await registerAndLogin(page);
-  await createPendingOrderViaApi(page);
-
-  await page.goto('/orders', { waitUntil: 'domcontentloaded' });
-  await expect(
-    page.getByRole('heading', { name: 'Lịch sử đơn hàng' }),
-  ).toBeVisible();
-  await expect(page.getByText('Chờ thanh toán')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Hủy đơn' })).toHaveCount(0);
 });
 
 test('Quay lại từ Checkout PENDING xác nhận CANCELLED', async ({ page }) => {

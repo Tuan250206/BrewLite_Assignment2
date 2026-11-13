@@ -4,6 +4,9 @@ const port = 3100;
 
 export default defineConfig({
   testDir: './e2e',
+  // checkout-real.spec.ts yêu cầu API thật (mock tắt) nên chạy riêng
+  // bằng `npm run test:e2e:real` (playwright.real.config.ts).
+  testIgnore: 'checkout-real.spec.ts',
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
