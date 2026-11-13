@@ -14,10 +14,10 @@ generator client {
 enum OrderStatus {
   PENDING
   PAID
-  PAYMENT_FAILED
   PREPARING
   READY
   COMPLETED
+  PAYMENT_FAILED
   CANCELLED
 }
 

@@ -8,7 +8,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 import { CreatePaymentDto } from './dto/create-payment.dto.js';
@@ -31,6 +31,12 @@ export class PaymentsController {
   ) {}
 
   @Post()
+  @ApiHeader({
+    name: 'Idempotency-Key',
+    description: 'Khóa duy nhất cho mỗi giao dịch thanh toán (tối đa 255 ký tự)',
+    required: true,
+    example: 'payment-test-001',
+  })
   create(
     @Req() request: AuthenticatedRequest,
     @Headers('idempotency-key')

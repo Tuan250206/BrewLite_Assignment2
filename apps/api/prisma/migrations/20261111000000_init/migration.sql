@@ -2,12 +2,10 @@
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
-CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'PAID', 'PAYMENT_FAILED', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED');
-
--- CreateEnum
 CREATE TYPE "PaymentMethod" AS ENUM ('WALLET', 'CARD');
 
--- CreateEnum
+-- Keep the legacy payment table's status enum separate from the current API.
+ALTER TYPE "PaymentStatus" RENAME TO "LegacyPaymentStatus";
 CREATE TYPE "PaymentStatus" AS ENUM ('SUCCESS', 'FAILED');
 
 -- CreateTable
