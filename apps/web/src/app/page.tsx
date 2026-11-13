@@ -13,6 +13,10 @@ import OrderSuccessModal from '@/components/cart/OrderSuccessModal';
 import OutOfStockModal from '@/components/cart/OutOfStockModal';
 import PaymentFailedModal from '@/components/cart/PaymentFailedModal';
 import { fetchMyOrders, getApiErrorMessage } from '@/lib/orders-api';
+import {
+  orderPaymentFetch,
+  setCheckoutMockSnapshot,
+} from '@/lib/order-payment-api';
 
 const EXIT_CANCEL_NOTICE_KEY = 'brewlite-pending-cancel-notice';
 
@@ -61,7 +65,7 @@ async function fetchOrderStatusAfterPayment(
   token: string,
 ): Promise<string | null> {
   try {
-    const response = await fetch(
+    const response = await orderPaymentFetch(
       `http://localhost:3001/payments/orders/${encodeURIComponent(orderId)}/status`,
       { headers: { Authorization: `Bearer ${token}` } },
     );
@@ -260,7 +264,17 @@ export default function Home() {
         })),
       };
 
-      const orderRes = await fetch('http://localhost:3001/orders', {
+      setCheckoutMockSnapshot(
+        items.map((item) => ({
+          productId: item.productId,
+          name: item.name,
+          size: item.size,
+          topping: item.topping,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+        })),
+      );
+      const orderRes = await orderPaymentFetch('http://localhost:3001/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -315,7 +329,7 @@ export default function Home() {
     setIsCheckingOut(true);
     try {
       // 2. Gửi yêu cầu thanh toán mô phỏng; backend gọi Mock Gateway và trả kết quả đồng bộ.
-      const paymentRes = await fetch('http://localhost:3001/payments', {
+      const paymentRes = await orderPaymentFetch('http://localhost:3001/payments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -411,7 +425,7 @@ export default function Home() {
 
     setIsUpdatingFailedOrder(true);
     try {
-      const response = await fetch(
+      const response = await orderPaymentFetch(
         `http://localhost:3001/orders/${paymentFailedOrderId}/${action}`,
         {
           method: 'PATCH',
@@ -475,7 +489,7 @@ export default function Home() {
     setIsCancellingOrder(true);
     setPendingCancelError(null);
     try {
-      const response = await fetch(
+      const response = await orderPaymentFetch(
         `http://localhost:3001/orders/${encodeURIComponent(pendingOrderId)}/cancel`,
         {
           method: 'PATCH',
@@ -523,7 +537,7 @@ export default function Home() {
 
       cancellationInFlightRef.current = true;
       window.sessionStorage.setItem(EXIT_CANCEL_NOTICE_KEY, pendingOrderId);
-      void fetch(
+      void orderPaymentFetch(
         `http://localhost:3001/orders/${encodeURIComponent(pendingOrderId)}/cancel`,
         {
           method: 'PATCH',

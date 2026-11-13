@@ -1,3 +1,5 @@
+import { orderPaymentFetch } from './order-payment-api';
+
 export type OrderStatus =
   | 'PENDING'
   | 'PAID'
@@ -179,7 +181,7 @@ export async function fetchMyOrders(
   );
 
   try {
-    response = await fetch(`${API_BASE_URL}/orders/me`, {
+    response = await orderPaymentFetch(`${API_BASE_URL}/orders/me`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
       signal: requestController.signal,
@@ -245,7 +247,7 @@ export async function updateMyOrder(
 ): Promise<OrderHistoryEntry> {
   let response: Response;
   try {
-    response = await fetch(
+    response = await orderPaymentFetch(
       `${API_BASE_URL}/orders/${encodeURIComponent(orderId)}/${action}`,
       {
         method: 'PATCH',
