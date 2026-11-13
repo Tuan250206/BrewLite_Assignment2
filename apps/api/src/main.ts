@@ -30,7 +30,8 @@ async function bootstrap() {
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('swagger', app, swaggerDocument);
 
-  await app.listen(3001); // Đổi sang cổng 3001 để tránh trùng cổng 3000 với Next.js
-  console.log(`Backend is running on: http://localhost:3001`);
+  const port = Number(process.env.PORT ?? 3001);
+  await app.listen(port, '0.0.0.0');
+  console.log(`Backend is running on port ${port}`);
 }
 void bootstrap();
