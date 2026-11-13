@@ -23,7 +23,7 @@
     "postinstall": "prisma skills sync || exit 0"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "node --loader ts-node/esm prisma/seed.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

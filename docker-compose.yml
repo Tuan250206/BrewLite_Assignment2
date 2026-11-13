@@ -17,5 +17,33 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build:
+      context: ./apps/api
+    container_name: brewlite-api-compose
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/brewlite_db?schema=public
+      JWT_SECRET: ${JWT_SECRET:-brewlite_dev_secret_key_change_in_production_32bytes}
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./apps/web
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001
+        NEXT_PUBLIC_BREWLITE_ORDER_MOCK: "false"
+    container_name: brewlite-web-compose
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
 volumes:
   brewlite-postgres-data:
