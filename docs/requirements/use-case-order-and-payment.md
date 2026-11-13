@@ -76,10 +76,10 @@ Use case này không mô tả quy trình nhân viên xử lý đơn.
 9. Liên kết yêu cầu
 Mã yêu cầu	Nội dung liên quan
 FR-03	Giỏ hàng phải có sản phẩm và thông tin đơn hàng hợp lệ trước khi đặt.
-FR-04	Khách hàng phải đăng nhập; API được bảo vệ từ chối request chưa xác thực.
-FR-05	BrewLite kiểm tra dữ liệu và tình trạng khả dụng trước khi tạo đơn.
-FR-06	BrewLite gửi yêu cầu đến dịch vụ thanh toán mô phỏng và nhận kết quả.
-FR-07	BrewLite lưu và thông báo kết quả thanh toán.
+FR-05	Khách hàng phải đăng nhập; API được bảo vệ từ chối request chưa xác thực.
+FR-06	BrewLite kiểm tra dữ liệu và tình trạng khả dụng trước khi tạo đơn.
+FR-07	BrewLite gửi yêu cầu đến dịch vụ thanh toán mô phỏng, lưu và thông báo kết quả thanh toán.
+FR-09	Khách hàng có thể hủy đơn khi đơn ở trạng thái PAYMENT_FAILED.
 NFR-01	Request lỗi hoặc quá thời gian phải trả mã HTTP và thông báo lỗi phù hợp.
 NFR-02	Áp dụng xác thực và bảo vệ đơn hàng của khách; cập nhật tự động theo kết quả thanh toán hợp lệ không phải thao tác đổi trạng thái thủ công của nhân viên.
 NFR-03 về health check và NFR-04 về triển khai áp dụng ở cấp hệ thống, không phải các bước riêng của use case này.

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
 import { User, ChevronDown, Package, LogOut } from 'lucide-react';
 
 interface UserNavProps {
@@ -63,14 +62,14 @@ export default function UserNav({ currentUser, onOpenAuthModal, onLogout }: User
             <p className="text-xs font-medium text-stone-800 truncate">{currentUser.email}</p>
           </div>
 
-          <Link
+          <a
             href="/orders"
             onClick={() => setIsOpenDropdown(false)}
             className="flex items-center gap-2 w-full px-3 py-2 text-xs font-medium text-stone-700 hover:bg-amber-50 hover:text-amber-800 rounded-lg transition"
           >
             <Package className="w-4 h-4 text-stone-500" />
             <span>Đơn hàng của tôi</span>
-          </Link>
+          </a>
 
           <button
             onClick={() => {

@@ -10,7 +10,7 @@ Dự án áp dụng mô hình monorepo với các thư mục chính:
 - `apps/web`: Ứng dụng Frontend phát triển bằng Next.js (Mobile-first / PWA).
 - `apps/api`: Dịch vụ Backend API xây dựng bằng NestJS.
 - `docs/`: Tài liệu phân tích yêu cầu (SRS), sơ đồ thiết kế UML và kiến trúc hệ thống.
-- `tests/`: Kịch bản kiểm thử tích hợp (Integration Test) và kiểm thử đầu-cuối (E2E Test).
+- `tests/`: Bộ kiểm thử backend (Unit Test, Integration Test) và hướng dẫn chạy.
 - `.github/workflows/`: Cấu hình pipeline tự động hóa CI/CD qua GitHub Actions.
 
 ---
@@ -68,3 +68,9 @@ Một User Story hoặc Issue được xác nhận là "Done" khi đạt đủ c
    ```bash
    git clone [https://github.com/Tuan250206/BrewLite_Assignment2.git](https://github.com/Tuan250206/BrewLite_Assignment2.git)
    cd BrewLite_Assignment2
+   ```
+
+## 6. Kiểm thử Backend và DB Migration (Task 5.2)
+
+Mã kiểm thử mới nằm trong `tests/unit/` và `tests/integration/`.
+Xem [hướng dẫn chạy test và migration/seed](tests/README.md).

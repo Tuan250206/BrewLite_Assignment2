@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsIn,
   IsInt,
@@ -30,6 +31,9 @@ export class CreateOrderItemDto {
   })
   @ArrayMaxSize(5, {
     message: 'Mỗi món chỉ được chọn tối đa 5 topping',
+  })
+  @ArrayUnique({
+    message: 'Mỗi topping chỉ được chọn một lần',
   })
   @IsString({
     each: true,
