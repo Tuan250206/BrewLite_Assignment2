@@ -1,4 +1,5 @@
 import { orderPaymentFetch } from './order-payment-api';
+import { API_BASE_URL } from './api-base';
 
 export type OrderStatus =
   | 'PENDING'
@@ -38,9 +39,6 @@ export class OrdersApiError extends Error {
     this.name = 'OrdersApiError';
   }
 }
-
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? 'http://localhost:3001';
 
 const ORDER_STATUSES: ReadonlySet<string> = new Set([
   'PENDING',

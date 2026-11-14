@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useCartStore } from "@/stores/cartStore";
 import AddToCartModal from "@/components/cart/AddToCartModal";
 import { getProductImageUrl } from "@/lib/product-image";
+import { API_BASE_URL } from "@/lib/api-base";
 
 // Danh sách Option / Topping
 const SIZE_OPTIONS = [
@@ -48,7 +49,7 @@ export default function ProductDetailPage() {
   useEffect(() => {
     if (!productId) return;
 
-    fetch(`http://localhost:3001/products/${productId}`)
+    fetch(`${API_BASE_URL}/products/${productId}`)
       .then((res) => {
         if (!res.ok) throw new Error('Không tìm thấy sản phẩm');
         return res.json();

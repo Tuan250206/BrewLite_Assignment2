@@ -13,6 +13,7 @@ import OrderSuccessModal from '@/components/cart/OrderSuccessModal';
 import OutOfStockModal from '@/components/cart/OutOfStockModal';
 import PaymentFailedModal from '@/components/cart/PaymentFailedModal';
 import { fetchMyOrders, getApiErrorMessage } from '@/lib/orders-api';
+import { API_BASE_URL } from '@/lib/api-base' ;
 import {
   orderPaymentFetch,
   setCheckoutMockSnapshot,
@@ -66,7 +67,7 @@ async function fetchOrderStatusAfterPayment(
 ): Promise<string | null> {
   try {
     const response = await orderPaymentFetch(
-      `http://localhost:3001/payments/orders/${encodeURIComponent(orderId)}/status`,
+      `${API_BASE_URL}/payments/orders/${encodeURIComponent(orderId)}/status`,
       { headers: { Authorization: `Bearer ${token}` } },
     );
     if (!response.ok) return null;
@@ -81,7 +82,7 @@ async function fetchOrderStatusAfterPayment(
 }
 
 async function fetchProducts(): Promise<BackendProduct[]> {
-  const response = await fetch("http://localhost:3001/products");
+  const response = await fetch(`${API_BASE_URL}/products`);
   if (!response.ok) {
     throw new Error("Lỗi khi tải danh sách sản phẩm");
   }
@@ -274,7 +275,7 @@ export default function Home() {
           unitPrice: item.unitPrice,
         })),
       );
-      const orderRes = await orderPaymentFetch('http://localhost:3001/orders', {
+      const orderRes = await orderPaymentFetch(`${API_BASE_URL}/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -329,7 +330,7 @@ export default function Home() {
     setIsCheckingOut(true);
     try {
       // 2. Gửi yêu cầu thanh toán mô phỏng; backend gọi Mock Gateway và trả kết quả đồng bộ.
-      const paymentRes = await orderPaymentFetch('http://localhost:3001/payments', {
+      const paymentRes = await orderPaymentFetch(`${API_BASE_URL}/payments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -426,7 +427,7 @@ export default function Home() {
     setIsUpdatingFailedOrder(true);
     try {
       const response = await orderPaymentFetch(
-        `http://localhost:3001/orders/${paymentFailedOrderId}/${action}`,
+        `${API_BASE_URL}/orders/${paymentFailedOrderId}/${action}`,
         {
           method: 'PATCH',
           headers: { Authorization: `Bearer ${token}` },
@@ -490,7 +491,7 @@ export default function Home() {
     setPendingCancelError(null);
     try {
       const response = await orderPaymentFetch(
-        `http://localhost:3001/orders/${encodeURIComponent(pendingOrderId)}/cancel`,
+        `${API_BASE_URL}/orders/${encodeURIComponent(pendingOrderId)}/cancel`,
         {
           method: 'PATCH',
           headers: { Authorization: `Bearer ${token}` },
@@ -538,7 +539,7 @@ export default function Home() {
       cancellationInFlightRef.current = true;
       window.sessionStorage.setItem(EXIT_CANCEL_NOTICE_KEY, pendingOrderId);
       void orderPaymentFetch(
-        `http://localhost:3001/orders/${encodeURIComponent(pendingOrderId)}/cancel`,
+        `${API_BASE_URL}/orders/${encodeURIComponent(pendingOrderId)}/cancel`,
         {
           method: 'PATCH',
           headers: { Authorization: `Bearer ${token}` },
