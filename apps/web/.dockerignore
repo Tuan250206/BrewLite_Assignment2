@@ -1,0 +1,12 @@
+node_modules
+.next
+.next-e2e
+.next-e2e-real
+coverage
+playwright-report
+playwright-report-real
+test-results
+test-results-real
+.env
+.env.*
+*.log

@@ -1,4 +1,3 @@
-Set-Content -Path .gitignore -Value @"
 node_modules/
 .next/
 dist/
@@ -8,4 +7,3 @@ build/
 *.log
 .DS_Store
 coverage/
-"@

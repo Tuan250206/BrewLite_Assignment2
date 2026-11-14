@@ -1,0 +1,122 @@
+@startuml deployment-production
+left to right direction
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam roundcorner 0
+skinparam nodesep 130
+skinparam ranksep 160
+skinparam backgroundColor #FFFFFF
+skinparam ArrowColor #333333
+skinparam packageStyle rectangle
+skinparam node {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+  FontColor #000000
+}
+skinparam database {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+  FontColor #000000
+}
+skinparam artifact {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+  FontColor #000000
+}
+skinparam package {
+  BackgroundColor #FFFFFF
+  BorderColor #333333
+  FontColor #000000
+}
+
+title BrewLite - Triển khai môi trường phát triển, CI/CD và Production
+
+package "Thiết bị người dùng" {
+  actor "Khách hàng\nTrình duyệt / PWA" as Customer
+}
+
+package "Môi trường phát triển cục bộ" as Local {
+  node "Máy trạm lập trình viên" {
+    artifact "Mã nguồn Git\napps/web, apps/api" as Source
+    node "Next.js dev server\nlocalhost:3000" as LocalWeb
+    node "Trình duyệt\nlocalhost:3000" as LocalBrowser
+    node "NestJS API\nlocalhost:3001" as LocalApi
+    artifact "Tệp môi trường cục bộ\napps/web/.env.local\napps/api/.env (không commit)" as LocalEnv
+  }
+  database "PostgreSQL cục bộ (Docker Compose)\nlocalhost:5432\nvolume: postgres_data" as LocalDb
+  Source --> LocalWeb : npm run dev
+  Source --> LocalApi : npm run start:dev
+  LocalBrowser --> LocalWeb : HTTP :3000
+  LocalBrowser --> LocalApi : NEXT_PUBLIC_API_URL\nHTTP :3001 (CORS)
+  LocalApi --> LocalDb : PostgreSQL :5432
+  LocalEnv ..> LocalWeb : cấu hình cục bộ
+  LocalEnv ..> LocalApi : cấu hình cục bộ
+}
+
+package "CI / Phân phối container" as CI {
+  node "Kho mã nguồn GitHub" as GitHub
+  node "GitHub Actions runner" as Actions {
+    artifact "Kiểm thử và build\nimage web + API\ntag / digest bất biến" as Build
+  }
+  node "GitHub Container Registry\n(GHCR)" as Registry {
+    artifact "Image BrewLite web" as WebImage
+    artifact "Image BrewLite API" as ApiImage
+  }
+  artifact "Secret GitHub Actions\nRENDER_DEPLOY_HOOK_URL" as HookSecret
+  GitHub --> Actions : push / merge
+  Actions --> Registry : HTTPS :443\nđẩy image
+  Actions ..> HookSecret : đọc secret
+}
+
+package "Production (Render)" as Production {
+  node "Nền tảng Render" as Render {
+    node "Render edge / CDN / TLS được quản lý\nHTTPS công khai :443" as Edge
+    node "Next.js Web Service\nHTTPS công khai\nSSR / web assets\n0.0.0.0:$PORT" as Web
+    node "NestJS API Web Service\nHTTPS công khai cho trình duyệt\n0.0.0.0:$PORT" as API
+    node "Bộ kiểm tra sức khỏe Render" as HealthChecker
+    database "PostgreSQL được quản lý\nInternal URL / private network :5432\nAPI là ứng dụng kết nối" as Postgres
+    artifact "Lưu trữ cơ sở dữ liệu bền vững" as Storage
+    artifact "Biến môi trường Backend khi chạy\nDATABASE_URL (internal URL)\nJWT_SECRET\nMOCK_GATEWAY_WEBHOOK_SECRET\nPAYMENT_WEBHOOK_URL" as Secrets
+    artifact "Cấu hình build Frontend\nNEXT_PUBLIC_API_URL\ncông khai; đặt khi build image" as WebConfig
+    artifact "Thông tin xác thực registry Render\ncần có khi image GHCR là private" as RegistryCredential
+    artifact "Log service và log deploy Render" as Logs
+
+    Edge --> Web : HTTP đến $PORT\nsau khi kết thúc TLS
+    Edge --> API : HTTP đến $PORT\nsau khi kết thúc TLS
+    HealthChecker --> API : HTTP GET /health
+    API --> Postgres : TCP nội bộ :5432
+    Postgres --> Storage : dữ liệu bền vững
+    Secrets ..> API : inject khi chạy
+    WebConfig ..> Web : đưa vào lúc build
+    RegistryCredential ..> Web : xác thực khi pull image
+    RegistryCredential ..> API : xác thực khi pull image
+    Web ..> Logs : stdout / stderr
+    API ..> Logs : stdout / stderr
+  }
+}
+
+Customer --> Edge : HTTPS :443
+Registry --> Web : pull image theo digest/tag đã cấu hình
+Registry --> API : pull image theo digest/tag đã cấu hình
+Actions ..> Render : deploy hook / Render API\nkích hoạt deploy phiên bản image đã cấu hình
+
+note bottom of Local
+  Các service cục bộ chạy trên máy của lập trình viên.
+  Không sao chép secret production vào tệp cục bộ hoặc Git.
+end note
+
+note bottom of Production
+  Đặt các service và PostgreSQL cùng Render region, dùng internal URL.
+  Nếu không được phép truy cập công khai, phải tắt external access hoặc
+  giới hạn theo IP cho Render Postgres.
+
+  Vì trình duyệt gọi API trực tiếp, API phải là Web Service công khai.
+  Muốn API chỉ private, trước hết cần thêm proxy/BFF phía server Next.js.
+
+  NestJS phải bind 0.0.0.0 và process.env.PORT. Phải triển khai GET /health
+  trước khi cấu hình HTTP health-check path. Deploy hook chỉ deploy lại image
+  reference đã cấu hình; đổi digest/tag cần Render API hoặc mutable tag policy.
+end note
+@enduml

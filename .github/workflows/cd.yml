@@ -1,0 +1,213 @@
+name: Continuous Delivery (CD)
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BASE: ghcr.io/tuan250206/brewlite_assignment2
+
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  quality-gate:
+    name: '1. Quality gate (lint + test + build)'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # ---------- BACKEND ----------
+      - name: Install dependencies (API)
+        run: cd apps/api && npm ci
+
+      - name: Lint (API)
+        run: cd apps/api && npm run lint
+
+      - name: Unit Test (API)
+        run: cd apps/api && npm test -- --runInBand --passWithNoTests
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+
+      - name: Build (API)
+        run: cd apps/api && npm run build
+
+      # ---------- FRONTEND ----------
+      - name: Install dependencies (Web)
+        run: cd apps/web && npm ci
+
+      - name: Lint (Web)
+        run: cd apps/web && npm run lint
+
+      - name: Build (Web)
+        run: cd apps/web && npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.PRODUCTION_API_URL || 'http://localhost:3001' }}
+          NEXT_PUBLIC_BREWLITE_ORDER_MOCK: 'false'
+
+  build-and-push:
+    name: '2-3. Build image & push GHCR'
+    needs: quality-gate
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 'Tinh tag bat bien (semver khi push tag, sha-xxxxxxx khi push nhanh)'
+        id: meta
+        run: |
+          SHORT_SHA="$(echo "${GITHUB_SHA}" | cut -c1-7)"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF_NAME}"        # vi du: v2.0.0
+          else
+            TAG="sha-${SHORT_SHA}"          # vi du: sha-3e679d8
+          fi
+          echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "===== Tag image se dung: ${TAG} ====="
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 'Build & push API image'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./apps/api
+          push: true
+          tags: |
+            ${{ env.IMAGE_BASE }}/api:${{ steps.meta.outputs.image_tag }}
+            ${{ env.IMAGE_BASE }}/api:latest
+
+      - name: 'Build & push Web image'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./apps/web
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.PRODUCTION_API_URL || 'http://localhost:3001' }}
+            NEXT_PUBLIC_BREWLITE_ORDER_MOCK=false
+          tags: |
+            ${{ env.IMAGE_BASE }}/web:${{ steps.meta.outputs.image_tag }}
+            ${{ env.IMAGE_BASE }}/web:latest
+
+  deploy:
+    name: '4-7. Deploy Render + smoke test + rollback'
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_TAG: ${{ needs.build-and-push.outputs.image_tag }}
+    steps:
+      - name: 'Kiem tra secret / variable bat buoc'
+        env:
+          HOOK_API: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
+          HOOK_WEB: ${{ secrets.RENDER_WEB_DEPLOY_HOOK }}
+          API_URL: ${{ vars.PRODUCTION_API_URL }}
+        run: |
+          missing=0
+          if [ -z "$HOOK_API" ]; then
+            echo "::error::Thieu secret RENDER_API_DEPLOY_HOOK"
+            missing=1
+          fi
+          if [ -z "$HOOK_WEB" ]; then
+            echo "::error::Thieu secret RENDER_WEB_DEPLOY_HOOK"
+            missing=1
+          fi
+          if [ -z "$API_URL" ]; then
+            echo "::error::Thieu variable PRODUCTION_API_URL"
+            missing=1
+          fi
+          exit $missing
+
+      - name: '(4) Trigger Render deploy - API'
+        env:
+          HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
+        run: |
+          echo "Deploy image: ${IMAGE_BASE}/api:${IMAGE_TAG}"
+          curl --silent --show-error --fail \
+            --get --data-urlencode "imgURL=${IMAGE_BASE}/api:${IMAGE_TAG}" \
+            "$HOOK"
+
+      - name: '(5)(6) Smoke test API - GET /health'
+        env:
+          API_URL: ${{ vars.PRODUCTION_API_URL }}
+        run: |
+          echo "Cho Render pull image, chay migrate + seed va khoi dong API..."
+          for i in $(seq 1 60); do
+            BODY="$(curl -s --max-time 10 "${API_URL}/health" || true)"
+            echo "[lan ${i}] ${BODY:-<chua phan hoi>}"
+            if echo "${BODY}" | grep -q '"status":"ok"'; then
+              echo "SMOKE TEST API: PASSED"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Smoke test API that bai sau 15 phut"
+          exit 1
+
+      - name: '(4) Trigger Render deploy - Web'
+        env:
+          HOOK: ${{ secrets.RENDER_WEB_DEPLOY_HOOK }}
+        run: |
+          echo "Deploy image: ${IMAGE_BASE}/web:${IMAGE_TAG}"
+          curl --silent --show-error --fail \
+            --get --data-urlencode "imgURL=${IMAGE_BASE}/web:${IMAGE_TAG}" \
+            "$HOOK"
+
+      - name: '(6) Smoke test Web'
+        env:
+          WEB_URL: ${{ vars.PRODUCTION_WEB_URL }}
+        run: |
+          if [ -z "$WEB_URL" ]; then
+            echo "Bo qua smoke test Web (chua dat variable PRODUCTION_WEB_URL)"
+            exit 0
+          fi
+          for i in $(seq 1 40); do
+            CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$WEB_URL" || true)"
+            echo "[lan ${i}] HTTP ${CODE}"
+            if [ "$CODE" = "200" ]; then
+              echo "SMOKE TEST WEB: PASSED"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::Smoke test Web that bai"
+          exit 1
+
+      - name: '(7) Huong dan rollback khi deploy that bai'
+        if: failure()
+        run: |
+          {
+            echo "## Deploy THAT BAI - pipeline da dung"
+            echo ""
+            echo "Khong co ban phat hanh moi nao duoc chap nhan."
+            echo ""
+            echo "### Cach rollback"
+            echo "1. Render Dashboard -> chon service -> Events -> chon ban deploy XANH gan nhat -> Redeploy."
+            echo "2. Hoac goi lai deploy hook voi tag CU (tag bat bien, vi du sha-3e679d8):"
+            echo '   curl --get --data-urlencode "imgURL=ghcr.io/tuan250206/brewlite_assignment2/api:sha-3e679d8" "<deploy hook>"'
+            echo ""
+            echo "Vi moi image deu co tag bat bien (khong bi ghi de), rollback chi la tro ve tag cu."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,147 @@
+@startuml
+title Class Diagram - Domain Model (BrewLite)
+
+skinparam backgroundColor White
+skinparam shadowing false
+skinparam roundCorner 0
+skinparam linetype ortho
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam classFontStyle bold
+skinparam classAttributeFontStyle plain
+skinparam classAttributeIconSize 0
+skinparam nodesep 60
+skinparam ranksep 60
+
+skinparam class {
+  BackgroundColor White
+  BorderColor Black
+  BorderThickness 1.2
+  FontStyle bold
+  ArrowColor Black
+  FontColor Black
+  AttributeFontColor Black
+  StereotypeFontColor Black
+  StereotypeFontSize 11
+}
+skinparam stereotypeCBackgroundColor White
+hide circle
+hide empty members
+
+class OrderStatus <<enumeration>> #E3F4F4 {
+  PENDING
+  PAID
+  PAYMENT_FAILED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+class PaymentMethod <<enumeration>> #E3F4F4 {
+  WALLET
+  CARD
+}
+
+class PaymentStatus <<enumeration>> #E3F4F4 {
+  SUCCESS
+  FAILED
+}
+
+class Product {
+  + String id
+  + String name
+  + Decimal price
+  + String imageUrl
+  + Integer stock
+  --
+  + isAvailable(quantity: Integer): Boolean
+  + decreaseStock(quantity: Integer): void
+  + increaseStock(quantity: Integer): void
+}
+
+class OrderItem {
+  + String id
+  + String orderId
+  + String productId
+  + String size
+  + String topping
+  + Integer qty
+  + Decimal lineTotal
+  --
+  + calculateUnitPrice(): Decimal
+  + calculateLineTotal(): Decimal
+  + updateQuantity(quantity: Integer): void
+}
+
+class Promotion {
+  + String id
+  + String code
+  + String description
+  + Decimal discountPercent
+  + Boolean isActive
+  --
+  + isValid(now: DateTime): Boolean
+  + calculateDiscount(total: Decimal): Decimal
+}
+
+class Order {
+  + String id
+  + String userId
+  + OrderStatus status
+  + Decimal total
+  + String promotionCode
+  + DateTime createdAt
+  --
+  + addItem(item: OrderItem): void
+  + calculateTotal(): Decimal
+  + changeStatus(status: OrderStatus): void
+}
+
+class User {
+  + String id
+  + String email
+  + String passwordHash
+  + Integer loyaltyPoints
+  --
+  + addLoyaltyPoints(points: Integer): void
+  + redeemLoyaltyPoints(points: Integer): Boolean
+  + hasEnoughLoyaltyPoints(points: Integer): Boolean
+}
+
+class Payment {
+  + String id
+  + String orderId
+  + String idempotencyKey
+  + Decimal amount
+  + PaymentMethod method
+  + PaymentStatus status
+  --
+  + initializePayment(): Payment
+  + markAsPaid(): void
+  + markAsFailed(): void
+}
+
+class LoyaltyTransaction {
+  + String id
+  + String userId
+  + String orderId
+  + Integer pointsDelta
+  + DateTime createdAt
+  --
+  + createEarn(userId: String, points: Integer): LoyaltyTransaction
+  + createRedeem(userId: String, points: Integer): LoyaltyTransaction
+}
+
+Product "1" -right- "0..*" OrderItem : referenced by ▶
+Promotion "0..1" .right.> "0..*" Order : applied to ▶
+Order "1" *-up- "1..*" OrderItem : contains ▼
+Order "1" .right.> OrderStatus : <<use>>\nstatus
+User "1" -right- "0..*" Order : places ▶
+Order "1" .right.> "0..*" Payment : payment attempts ▶
+Payment .right.> PaymentMethod : <<use>>\nmethod
+Payment .down.> PaymentStatus : <<use>>\nstatus
+Order "1" -down- "0..*" LoyaltyTransaction : related to ▶
+User "1" -down- "0..*" LoyaltyTransaction : owns ▼
+
+@enduml

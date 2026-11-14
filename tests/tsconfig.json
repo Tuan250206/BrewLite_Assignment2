@@ -1,0 +1,16 @@
+{
+  "extends": "../apps/api/tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true,
+    "typeRoots": ["../apps/api/node_modules/@types"],
+    "paths": {
+      "*": ["../apps/api/node_modules/@types/*", "../apps/api/node_modules/*"]
+    }
+  },
+  "include": [
+    "unit/**/*.ts",
+    "integration/**/*.ts",
+    "jest.*.config.ts"
+  ]
+}
