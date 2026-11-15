@@ -74,3 +74,45 @@ Một User Story hoặc Issue được xác nhận là "Done" khi đạt đủ c
 
 Mã kiểm thử mới nằm trong `tests/unit/` và `tests/integration/`.
 Xem [hướng dẫn chạy test và migration/seed](tests/README.md).
+
+## 🚀 Hướng dẫn vận hành hệ thống (Run, Test, Build, Deploy & Rollback)
+
+### 1. Hướng dẫn chạy Local
+```bash
+# Cài đặt thư viện
+pnpm install
+
+# Khởi chạy Database
+docker-compose up -d
+
+# Chạy ứng dụng môi trường dev
+pnpm dev
+
+### 2. Hướng dẫn Test
+Bash
+# Chạy Unit và Integration Tests
+pnpm test
+
+# Chạy Test E2E
+pnpm test:e2e
+
+###3. Hướng dẫn Build (Production Build)
+Bash
+# Build toàn bộ các packages và apps trong hệ thống Monorepo
+pnpm build
+
+###4. Hướng dẫn Triển khai (Deploy) & Khôi phục (Rollback)
+riển khai (Deploy): Hệ thống tích hợp pipeline tự động thông qua GitHub Actions (.github/workflows/ci.yml & cd.yml). Khi code được merge vào nhánh main, hệ thống sẽ tự động build và deploy lên server Production.Khôi phục phiên bản trước (Rollback):Bash# Quay lại phiên bản/tag ổn định trước đó trên Git và Docker
+git checkout <tag_version>
+docker-compose down
+docker-compose up -d --build
+🎥 Video / Demo trực tiếp luồng End-to-EndLink xem video demo chi tiết luồng nghiệp vụ từ chọn món, tạo giỏ hàng, thanh toán qua VNPay Sandbox đến quản lý đơn hàng: [Chèn link Google Drive / YouTube demo tại đây]   
+---
+
+### Các lệnh Terminal tiếp theo:
+Sau khi dán xong vào file `README.md` và bấm lưu, em mở **Terminal** lên và chạy 3 lệnh này để đẩy code lên GitHub là hoàn tất:
+
+```bash
+git add README.md
+git commit -m "docs: update full operation guide in README"
+git push origin docs/traceability-and-release

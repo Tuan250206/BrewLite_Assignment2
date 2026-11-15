@@ -1,18 +1,18 @@
 # Ma trận truy vết (Traceability Matrix) - BrewLite
 
-| Mã yêu cầu (Req ID) | Use-case / User Story | Thiết kế / Sơ đồ (Diagrams) | Code / API Endpoint | Test Cases |
+| Mã yêu cầu | User Story & Mô tả chi tiết | Thiết kế / Sơ đồ | Code / API | Test |
 | :--- | :--- | :--- | :--- | :--- |
-| **FR-01** | Khách hàng xem danh sách món ăn/thức uống (Catalog) | `docs/architecture/001-monorepo.md`[cite: 13] | `GET /products`, `GET /products/:id`[cite: 13] | Unit/Integration Test Catalog[cite: 13] |
-| **FR-02** | Khách hàng tạo đơn hàng và giả lập thanh toán (Idempotency) | `docs/architecture/003-mock-payment-idempotency.md`[cite: 13] | `POST /orders`, `POST /payments`[cite: 13] | API Test Thanh toán & Idempotency[cite: 13] |
-| **FR-03** | Xác thực tài khoản người dùng (Đăng ký/Đăng nhập JWT) | `docs/requirements/`[cite: 13] | `POST /auth/register`, `POST /auth/login`[cite: 13] | Auth Unit Test[cite: 13] |
-| **FR-04** | Quy trình CI/CD tự động hóa triển khai Production | `docs/deployment.md`[cite: 13] | `.github/workflows/ci.yml` & `cd.yml`[cite: 13] | Pipeline Build & Smoke Test[cite: 13] |
-| **FR-05** | Đăng nhập, xác thực và phân quyền tài khoản | UC-05, UC-06 | ADR-009, use-case-overview | Auth Unit Test / Security Test |
-| **FR-06** | Phân quyền và giới hạn dữ liệu theo vai trò | UC-05, UC-07 đến UC-12 | ADR-009, component-api | Unit Test |
-| **FR-07** | Tạo đơn hàng mới từ giỏ hàng | UC-07 | sequence-create-order, domain-class | E2E Test |
-| **FR-08** | Kiểm tra và cập nhật tồn kho nguyên liệu | UC-07 | ADR-003, sequence-order | Integration Test |
-| **FR-09** | Thanh toán đơn hàng qua VNPay Sandbox | UC-08 | ADR-004, sequence-payment-vnpay | E2E Test |
-| **FR-10** | Chống xử lý trùng thanh toán (Idempotency) | UC-08 | ADR-005, domain-class | Unit Test |
-| **FR-11** | Hết hạn, thất bại, thanh toán lại và hoàn tiền | UC-08 | ADR-006, activity-expiry | Integration Test |
-| **FR-12** | Xem xác nhận và chi tiết đơn hàng | UC-09 | sequence-checkout, domain-class | Unit Test |
-| **FR-13** | Xem lịch sử đơn hàng cá nhân | UC-10 | use-case-overview, domain-class | Unit Test |
-| **FR-14** | Xem đơn hàng của cửa hàng (Quản trị) | UC-11 | ADR-009, use-case-overview | Unit Test |
+| **NR-01** | **US-01:** Khách hàng xem danh sách món ăn/thức uống *(Mô tả: Cho phép người dùng duyệt qua danh mục sản phẩm, tìm kiếm và lọc đồ uống dễ dàng)* | activity-catalog, domain-class | `GET /products`, `GET /products/:id` | tests/evidence/nr-01.png |
+| **NR-02** | **US-02:** Xem chi tiết và tùy chọn sản phẩm *(Mô tả: Xem thông tin giá cả, thành phần và các tùy chọn size, lượng đường, đá cho từng món)* | activity-product-detail, domain-class | `GET /products/:id/options` | tests/evidence/nr-02.png |
+| **NR-03** | **US-03:** Quản lý giỏ hàng cá nhân *(Mô tả: Thêm, sửa, xoá sản phẩm và cập nhật số lượng trong giỏ hàng tạm thời)* | activity-cart, domain-class | `GET /cart`, `POST /cart/items` | tests/evidence/nr-03.png |
+| **NR-04** | **US-04:** Đăng ký tài khoản khách hàng *(Mô tả: Cho phép người dùng mới tạo tài khoản bằng email/số điện thoại và mật khẩu)* | sequence-register, domain-class | `POST /auth/register` | tests/evidence/nr-04.png |
+| **NR-05** | **US-05:** Đăng nhập, xác thực và đăng xuất *(Mô tả: Xác thực tài khoản người dùng, cấp phát và quản lý phiên làm việc bằng JWT)* | sequence-login, domain-class | `POST /auth/login`, `POST /auth/logout` | tests/evidence/nr-05.png |
+| **NR-06** | **US-06:** Tạo đơn hàng mới từ giỏ hàng *(Mô tả: Chuyển đổi sản phẩm trong giỏ thành đơn hàng chính thức với địa chỉ và thông tin giao nhận)* | sequence-create-order, activity-order | `POST /orders` | tests/evidence/nr-06.png |
+| **NR-07** | **US-07:** Kiểm tra và cập nhật tồn kho nguyên liệu *(Mô tả: Tự động trừ số lượng nguyên liệu trong kho tương ứng khi đơn hàng được xác nhận)* | sequence-inventory, activity-stock | `PATCH /inventory/:id` | tests/evidence/nr-07.png |
+| **NR-08** | **US-08:** Thanh toán đơn hàng qua VNPay Sandbox *(Mô tả: Tích hợp cổng thanh toán trực tuyến VNPay để xử lý giao dịch đơn hàng)* | sequence-payment-vnpay, activity-payment | `POST /payments/vnpay` | tests/evidence/nr-08.png |
+| **NR-09** | **US-09:** Chống xử lý trùng thanh toán (Idempotency) *(Mô tả: Đảm bảo một giao dịch thanh toán không bị thực hiện trùng lặp khi người dùng bấm nhiều lần)* | sequence-idempotency | Header `X-Idempotency-Key` | tests/evidence/nr-09.png |
+| **NR-10** | **US-10:** Xem lịch sử và chi tiết đơn hàng cá nhân *(Mô tả: Giúp khách hàng theo dõi trạng thái các đơn hàng đã đặt trước đó)* | sequence-checkout, domain-class | `GET /orders`, `GET /orders/:id` | tests/evidence/nr-10.png |
+| **NFR-01** | **Non-Functional:** Hiệu suất phản hồi API hệ thống dưới 500ms | architecture-overview | N/A (Caching / Optimization) | tests/evidence/nfr-01.png |
+| **NFR-02** | **Non-Functional:** Bảo mật thông tin, mã hóa mật khẩu bằng Bcrypt và xác thực token | ADR-009 (Security Auth) | Middleware / Bcrypt hashing | tests/evidence/nfr-02.png |
+| **NFR-03** | **Non-Functional:** Khả năng mở rộng kiến trúc Monorepo hiệu quả | docs/architecture/001-monorepo.md | Turboorepo / pnpm workspace | tests/evidence/nfr-03.png |
+| **NFR-04** | **Non-Functional:** Độ sẵn sàng hệ thống và triển khai tự động qua CI/CD pipeline | docs/deployment.md | `.github/workflows/ci.yml` & `cd.yml` | tests/evidence/nfr-04.png |
