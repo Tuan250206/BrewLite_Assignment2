@@ -55,9 +55,8 @@ class Product {
   + String imageUrl
   + Integer stock
   --
-  + isAvailable(quantity: Integer): Boolean
-  + decreaseStock(quantity: Integer): void
-  + increaseStock(quantity: Integer): void
+  + findAll()
+  + findOne(id: String)
 }
 
 class OrderItem {
@@ -69,9 +68,7 @@ class OrderItem {
   + Integer qty
   + Decimal lineTotal
   --
-  + calculateUnitPrice(): Decimal
-  + calculateLineTotal(): Decimal
-  + updateQuantity(quantity: Integer): void
+  + calculateLineTotal(basePrice: Decimal, size: OrderSize, toppings: String[], quantity: Integer): Decimal
 }
 
 class Promotion {
@@ -80,9 +77,6 @@ class Promotion {
   + String description
   + Decimal discountPercent
   + Boolean isActive
-  --
-  + isValid(now: DateTime): Boolean
-  + calculateDiscount(total: Decimal): Decimal
 }
 
 class Order {
@@ -93,9 +87,13 @@ class Order {
   + String promotionCode
   + DateTime createdAt
   --
-  + addItem(item: OrderItem): void
+  + create(userId: String, items: CreateOrderItemDto[])
+  + findMine(userId: String)
+  + findOne(userId: String, orderId: String)
+  + retryPayment(userId: String, orderId: String)
+  + cancel(userId: String, orderId: String)
   + calculateTotal(): Decimal
-  + changeStatus(status: OrderStatus): void
+  + changeStatus(from: OrderStatus, to: OrderStatus)
 }
 
 class User {
@@ -104,9 +102,9 @@ class User {
   + String passwordHash
   + Integer loyaltyPoints
   --
-  + addLoyaltyPoints(points: Integer): void
-  + redeemLoyaltyPoints(points: Integer): Boolean
-  + hasEnoughLoyaltyPoints(points: Integer): Boolean
+  + register(dto: RegisterDto)
+  + login(dto: LoginDto)
+  + getProfile(userId: String)
 }
 
 class Payment {
@@ -117,9 +115,9 @@ class Payment {
   + PaymentMethod method
   + PaymentStatus status
   --
-  + initializePayment(): Payment
-  + markAsPaid(): void
-  + markAsFailed(): void
+  + create(userId: String, idempotencyKey: String, dto: CreatePaymentDto)
+  + getOrderPaymentStatus(userId: String, orderId: String)
+  + pay(dto: PayGatewayDto)
 }
 
 class LoyaltyTransaction {
@@ -128,9 +126,6 @@ class LoyaltyTransaction {
   + String orderId
   + Integer pointsDelta
   + DateTime createdAt
-  --
-  + createEarn(userId: String, points: Integer): LoyaltyTransaction
-  + createRedeem(userId: String, points: Integer): LoyaltyTransaction
 }
 
 Product "1" -right- "0..*" OrderItem : referenced by ▶
