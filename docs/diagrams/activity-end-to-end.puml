@@ -1,269 +1,127 @@
+@startuml activity-end-to-end
+title BrewLite — Activity Diagram End-to-End (MVP IS-01–IS-07)
 
-@startuml
-skinparam conditionStyle diamond
-skinparam ConditionEndStyle diamond
-skinparam linetype ortho
-skinparam shadowing false
 skinparam defaultFontName Arial
-skinparam defaultFontSize 13
-skinparam wrapWidth 165
-skinparam nodesep 28
-skinparam ranksep 32
-
+skinparam shadowing false
+skinparam dpi 120
+skinparam ArrowColor #475569
+skinparam ArrowThickness 1
 skinparam activity {
-  BackgroundColor #FFFFFF
-  BorderColor #333333
+  BackgroundColor #F8FAFC
+  BorderColor #475569
   DiamondBackgroundColor #FFFFFF
-  DiamondBorderColor #333333
-  DiamondFontColor #FFFFFF
-  ArrowColor #333333
-  ArrowFontColor #222222
+  DiamondBorderColor #C2410C
+  StartColor #15803D
+  EndColor #991B1B
+  FontSize 13
 }
-
-skinparam swimlane {
-  BorderColor #333333
-  TitleFontColor #000000
-  TitleFontSize 14
+skinparam partition {
+  BackgroundColor #F1F5F9
+  BorderColor #CBD5E1
+  FontStyle bold
 }
-
-title BrewLite - Activity Diagram đặt hàng và thanh toán
-
-' 1. CHỌN MÓN VÀ KIỂM TRA GIỎ HÀNG
 
 |Khách hàng|
 start
-:Chọn món, tùy chọn và số lượng;
-:Mở Checkout;
+:Mở menu;
+|Frontend|
+:Hiển thị sản phẩm,\ngiá, hình ảnh, tồn kho,\nsize và topping;
+|Khách hàng|
+:Xem chi tiết;\nchọn size, topping và số lượng;
+|Frontend|
+:Thêm, sửa số lượng,\nhoặc xóa sản phẩm trong giỏ;
+|Khách hàng|
+:Tiến hành Checkout;
 
-|Giao diện|
-:Kiểm tra giỏ hàng;
-
-if (.) then ([Hợp lệ])
-else ([Không hợp lệ])
-  :Thông báo giỏ hàng không hợp lệ;
-  stop
-endif
-
-' 2. ĐĂNG NHẬP
-
-:Kiểm tra trạng thái đăng nhập;
-
-if (.) then ([Đã đăng nhập])
-else ([Chưa đăng nhập])
-  :Yêu cầu đăng nhập;
-
+|Frontend|
+:Kiểm tra đăng nhập;
+if () then (Đã đăng nhập)
+else (Chưa đăng nhập)
   |Khách hàng|
-  :Nhập thông tin đăng nhập;
-
-  |Giao diện|
-  :Gửi yêu cầu đăng nhập;
-
-  |Hệ thống|
-  :Xác thực tài khoản;
-
-  if (.) then ([Hợp lệ])
-  else ([Không hợp lệ])
-    |Giao diện|
-    :Thông báo đăng nhập thất bại;
+  :Đăng ký hoặc đăng nhập;
+  |Backend|
+  :Xác thực thông tin;
+  if () then (Thành công)
+  else (Thất bại)
+    |Frontend|
+    :Thông báo xác thực thất bại;
     stop
   endif
 endif
 
-' 3. TẠO ORDER
-
-|Khách hàng|
-:Xác nhận giỏ hàng và thông tin đơn;
-
-|Giao diện|
-:Gửi yêu cầu tạo Order;
-
-|Hệ thống|
-:Kiểm tra giá, sản phẩm, tồn kho,
-mã khuyến mãi và điểm quy đổi;
-
-if (.) then ([Hợp lệ])
-else ([Không hợp lệ])
-  |Giao diện|
+|Frontend|
+:Gửi giỏ hàng;
+|Backend|
+:Kiểm tra dữ liệu;\nlấy giá từ database;\ntính lại theo size và topping;
+if () then (Hợp lệ)
+  :Kiểm tra tồn kho;
+  if () then (Đủ hàng)
+    :Tạo đơn PENDING;
+  else (Không đủ hàng)
+    |Frontend|
+    :Thông báo hết hàng;
+    |Khách hàng|
+    :Điều chỉnh giỏ;\nđơn chưa được tạo;
+    stop
+  endif
+else (Không hợp lệ)
+  |Frontend|
   :Thông báo dữ liệu không hợp lệ;
+  |Khách hàng|
+  :Điều chỉnh giỏ;\nđơn chưa được tạo;
   stop
 endif
-
-|Hệ thống|
-:Bắt đầu transaction tạo Order;
-:Tạo Order PENDING và OrderItems;
-:Giữ điểm Loyalty nếu có quy đổi;
-:Kiểm tra kết quả transaction;
-
-if (.) then ([Thành công])
-  :Commit transaction;
-else ([Thất bại])
-  :Rollback transaction;
-
-  |Giao diện|
-  :Thông báo không thể tạo Order;
-  stop
-endif
-
-' 4. TẠO PAYMENT
-
-|Giao diện|
-:Hiển thị Order PENDING và tổng tiền;
-
-|Khách hàng|
-:Chọn EWALLET hoặc CARD;
-
-|Giao diện|
-:Chuẩn bị Idempotency-Key;
-
-' Vòng lặp thanh toán và retry
 
 repeat
-
-  |Giao diện|
-  :Gửi yêu cầu Payment cho Order;
-
-  |Hệ thống|
-  :Kiểm tra quyền, trạng thái Order,
-phương thức và Idempotency-Key;
-
-  if (.) then ([Được phép])
-    :Tạo Payment PENDING;
-    :Ngăn tạo trùng theo Idempotency-Key;
-  else ([Từ chối])
-    |Giao diện|
-    :Thông báo lỗi và trạng thái thực tế;
-    stop
-  endif
-
-  ' 5. GIAO DIỆN THANH TOÁN
-
-  |Giao diện|
-  :Hiển thị hướng dẫn thanh toán mock;
-
   |Khách hàng|
-  :Thanh toán hoặc đóng QR;
-
-  |Giao diện|
-  :Kiểm tra thao tác đóng QR;
-
-  if (.) then ([Đóng QR])
-    :Ẩn QR;
-    :Hiển thị Payment còn PENDING;
-  else ([Tiếp tục])
-    :Giữ hướng dẫn thanh toán;
-  endif
-
-  ' 6. XỬ LÝ CALLBACK
-
-  repeat
-
-    |Hệ thống|
-    :Chờ callback hoặc kiểm tra trạng thái Payment;
-
-    if (.) then ([Có callback])
-
-      :Xác thực callback và kiểm tra idempotency;
-
-      if (.) then ([Hợp lệ])
-
-        :Đối chiếu kết quả thanh toán;
-
-        if (.) then ([PAID])
-
-          :Trong transaction: cập nhật Payment
-và Order PAID;
-          :Trừ tồn kho và ghi nhận Loyalty
-một lần duy nhất;
-
-          |Giao diện|
-          :Thông báo thanh toán thành công;
-          stop
-
-        else ([Chưa PAID])
-
-          |Hệ thống|
-          :Kiểm tra kết quả PAYMENT_FAILED;
-
-          if (.) then ([PAYMENT_FAILED])
-            :Cập nhật Payment và Order
-PAYMENT_FAILED;
-          else ([PENDING])
-            :Giữ Payment PENDING;
-          endif
-
-        endif
-
-      else ([Không hợp lệ])
-
-        :Từ chối callback;
-        :Giữ trạng thái Payment hiện tại;
-
-      endif
-
-    else ([Chưa có callback])
-
-      :Giữ Payment PENDING;
-
-    endif
-
-    :Kiểm tra trạng thái Payment;
-
-  repeat while (.) is ([PENDING]) not ([PAYMENT_FAILED])
-
-  ' 7. THANH TOÁN THẤT BẠI
-
-  |Giao diện|
-  :Thông báo PAYMENT_FAILED;
-
+  :Chọn WALLET hoặc CARD;
+  |Frontend|
+  :Gửi yêu cầu thanh toán\nkèm Idempotency-Key;
+  |Backend|
+  :Xử lý thanh toán qua Mock Gateway;
+  |Frontend|
+  :Hiển thị trạng thái PENDING;
   |Khách hàng|
-  :Quyết định có thanh toán lại;
-
-  if (.) then ([Retry])
-
-    |Giao diện|
-    :Chuẩn bị Idempotency-Key mới;
-
-  else ([Không retry])
-
-    |Khách hàng|
-    :Quyết định có yêu cầu hủy Order;
-
-    if (.) then ([Hủy])
-
-      |Giao diện|
-      :Gửi yêu cầu hủy Order;
-
-      |Hệ thống|
-      :Kiểm tra quyền, trạng thái Order,
-Payment và điều kiện Loyalty;
-
-      if (.) then ([Được phép])
-
-        :Cập nhật Order CANCELLED;
-        :Giải phóng điểm giữ nếu có;
-
-        |Giao diện|
-        :Thông báo đã hủy Order;
-
-      else ([Từ chối])
-
-        |Giao diện|
-        :Thông báo không thể hủy;
-        :Hiển thị trạng thái thực tế;
-
+  if () then (Rời Checkout)
+    |Backend|
+    :Chuyển đơn PENDING sang CANCELLED;
+  else (Tiếp tục thanh toán)
+    |Backend|
+    :Nhận kết quả và kiểm tra\nIdempotency-Key;
+    if () then (Callback lặp)
+      :Trả kết quả đã ghi nhận;\nkhông xử lý lần hai;
+    else (Callback mới)
+      if () then (SUCCESS)
+        :Chuyển đơn sang PAID;\ncập nhật tồn kho;
+      else (FAILED)
+        :Chuyển đơn sang PAYMENT_FAILED;
       endif
-
-    else ([Không hủy])
-
-      |Giao diện|
-      :Hiển thị Order PAYMENT_FAILED;
-
     endif
-
-    stop
+    if () then (PAYMENT_FAILED)
+      |Frontend|
+      :Thông báo thanh toán thất bại;
+      |Khách hàng|
+      if () then (Retry)
+        |Backend|
+        :Đưa đơn về PENDING;
+        |Frontend|
+        :Tạo Idempotency-Key mới;
+      else (Cancel)
+        |Backend|
+        :Chuyển đơn sang CANCELLED;
+      endif
+    endif
   endif
+repeat while () is (Retry thanh toán) not (PAID hoặc CANCELLED)
 
-repeat while (.) is ([Retry]) not ([Kết thúc])
+|Khách hàng|
+:Mở lịch sử đơn hàng;
+|Frontend|
+:Yêu cầu đăng nhập để xem lịch sử;
+|Backend|
+:Xác thực và trả lịch sử,\ntrạng thái đơn của khách hàng;
+|Frontend|
+:Hiển thị lịch sử và trạng thái;\nPAID không có nhánh hủy;
 
 stop
 @enduml
