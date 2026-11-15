@@ -1,11 +1,11 @@
+
 @startuml activity-end-to-end
-title BrewLite — Activity Diagram End-to-End (MVP IS-01–IS-07)
+title BrewLite - Activity Diagram End-to-End (MVP)
 
 skinparam defaultFontName Arial
 skinparam shadowing false
 skinparam dpi 120
 skinparam ArrowColor #475569
-skinparam ArrowThickness 1
 skinparam activity {
   BackgroundColor #F8FAFC
   BorderColor #475569
@@ -18,110 +18,117 @@ skinparam activity {
 skinparam partition {
   BackgroundColor #F1F5F9
   BorderColor #CBD5E1
-  FontStyle bold
 }
 
 |Khách hàng|
 start
-:Mở menu;
+:Mở menu, xem chi tiết sản phẩm;
 |Frontend|
-:Hiển thị sản phẩm,\ngiá, hình ảnh, tồn kho,\nsize và topping;
+:Hiển thị giá, hình ảnh, tồn kho,\nsize và topping;
+
 |Khách hàng|
-:Xem chi tiết;\nchọn size, topping và số lượng;
+:Chọn size, topping và số lượng;
 |Frontend|
-:Thêm, sửa số lượng,\nhoặc xóa sản phẩm trong giỏ;
+:Thêm, sửa hoặc xóa món trong giỏ;
+
 |Khách hàng|
 :Tiến hành Checkout;
-
 |Frontend|
-:Kiểm tra đăng nhập;
-if () then (Đã đăng nhập)
-else (Chưa đăng nhập)
+:Kiểm tra phiên đăng nhập;
+
+if () then (Chưa đăng nhập)
   |Khách hàng|
   :Đăng ký hoặc đăng nhập;
   |Backend|
-  :Xác thực thông tin;
-  if () then (Thành công)
-  else (Thất bại)
+  :Xác thực tài khoản;
+  if () then (Thất bại)
     |Frontend|
-    :Thông báo xác thực thất bại;
+    :Thông báo lỗi xác thực;
     stop
+  else (Thành công)
   endif
+else (Đã đăng nhập)
 endif
 
 |Frontend|
-:Gửi giỏ hàng;
+:Gửi thông tin giỏ hàng;
 |Backend|
-:Kiểm tra dữ liệu;\nlấy giá từ database;\ntính lại theo size và topping;
-if () then (Hợp lệ)
-  :Kiểm tra tồn kho;
-  if () then (Đủ hàng)
-    :Tạo đơn PENDING;
-  else (Không đủ hàng)
-    |Frontend|
-    :Thông báo hết hàng;
-    |Khách hàng|
-    :Điều chỉnh giỏ;\nđơn chưa được tạo;
-    stop
-  endif
-else (Không hợp lệ)
+:Kiểm tra dữ liệu và tính lại giá\n từ database theo size/topping;
+
+if () then (Không hợp lệ)
   |Frontend|
-  :Thông báo dữ liệu không hợp lệ;
+  :Thông báo lỗi dữ liệu;
   |Khách hàng|
-  :Điều chỉnh giỏ;\nđơn chưa được tạo;
+  :Quay lại điều chỉnh giỏ;
   stop
+else (Hợp lệ)
 endif
 
-repeat
-  |Khách hàng|
-  :Chọn WALLET hoặc CARD;
+|Backend|
+:Kiểm tra tồn kho;
+if () then (Không đủ hàng)
   |Frontend|
-  :Gửi yêu cầu thanh toán\nkèm Idempotency-Key;
+  :Thông báo hết hàng;
+  |Khách hàng|
+  :Quay lại điều chỉnh giỏ;
+  stop
+else (Đủ hàng)
   |Backend|
-  :Xử lý thanh toán qua Mock Gateway;
-  |Frontend|
-  :Hiển thị trạng thái PENDING;
-  |Khách hàng|
-  if () then (Rời Checkout)
+  :Tạo Order PENDING;
+endif
+
+|Frontend|
+:Hiển thị màn hình thanh toán;
+|Khách hàng|
+if () then (Rời Checkout)
+  |Backend|
+  :Hủy Order PENDING\nsang CANCELLED;
+else (Tiếp tục)
+  repeat
+    |Khách hàng|
+    :Chọn WALLET hoặc CARD;
+    |Frontend|
+    :Gửi thanh toán kèm Idempotency-Key;
     |Backend|
-    :Chuyển đơn PENDING sang CANCELLED;
-  else (Tiếp tục thanh toán)
-    |Backend|
-    :Nhận kết quả và kiểm tra\nIdempotency-Key;
-    if () then (Callback lặp)
-      :Trả kết quả đã ghi nhận;\nkhông xử lý lần hai;
-    else (Callback mới)
+    :Kiểm tra Idempotency-Key;
+
+    if () then (Key trùng)
+      :Trả kết quả đã lưu,\nkhông xử lý lại;
+    else (Key mới)
+      :Xử lý qua Mock Gateway;
       if () then (SUCCESS)
-        :Chuyển đơn sang PAID;\ncập nhật tồn kho;
+        :Ghi Payment SUCCESS,\nOrder PAID và cập nhật tồn kho;
       else (FAILED)
-        :Chuyển đơn sang PAYMENT_FAILED;
+        :Ghi Payment FAILED,\nOrder PAYMENT_FAILED;
       endif
     endif
-    if () then (PAYMENT_FAILED)
-      |Frontend|
-      :Thông báo thanh toán thất bại;
+
+    |Frontend|
+    :Hiển thị kết quả thanh toán;
+    if () then (PAID)
+      :Xác nhận đặt hàng thành công;
+    else (PAYMENT_FAILED)
       |Khách hàng|
+      :Chọn Retry hoặc Cancel;
       if () then (Retry)
         |Backend|
-        :Đưa đơn về PENDING;
+        :Chuyển Order về PENDING;
         |Frontend|
         :Tạo Idempotency-Key mới;
       else (Cancel)
         |Backend|
-        :Chuyển đơn sang CANCELLED;
+        :Chuyển Order sang CANCELLED;
       endif
     endif
-  endif
-repeat while () is (Retry thanh toán) not (PAID hoặc CANCELLED)
+
+  repeat while () is (Retry) not (Hoàn tất)
+endif
 
 |Khách hàng|
 :Mở lịch sử đơn hàng;
-|Frontend|
-:Yêu cầu đăng nhập để xem lịch sử;
 |Backend|
-:Xác thực và trả lịch sử,\ntrạng thái đơn của khách hàng;
+:Xác thực và lấy lịch sử đơn của khách;
 |Frontend|
-:Hiển thị lịch sử và trạng thái;\nPAID không có nhánh hủy;
-
+:Hiển thị lịch sử và trạng thái đơn;
 stop
 @enduml
