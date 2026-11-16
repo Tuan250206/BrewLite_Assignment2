@@ -2,248 +2,202 @@
 
 ## 1. Mục đích
 
-Tài liệu này mô tả kiến trúc phần mềm của hệ thống BrewLite trong Assignment 2.
+Tài liệu này mô tả kiến trúc và các công nghệ đang được sử dụng trong BrewLite Assignment 2. Nội dung được đối chiếu với mã nguồn trong repository tại thời điểm rà soát, bao gồm ứng dụng Frontend, Backend, cấu hình cơ sở dữ liệu và các thành phần hỗ trợ vận hành.
 
-Nội dung được xây dựng dựa trên dự án BrewLite của Assignment 1 và các yêu cầu kiến trúc của Assignment 2. Tài liệu trình bày cấu trúc hệ thống, công nghệ sử dụng, các thành phần chính, luồng xử lý dữ liệu, những quyết định thiết kế quan trọng và các ưu điểm, hạn chế của kiến trúc.
-
-Mục tiêu là xây dựng một hệ thống có cấu trúc rõ ràng, dễ bảo trì, dễ kiểm thử và đáp ứng các chức năng chính của ứng dụng đặt đồ uống.
+Tài liệu phân biệt giữa chức năng đã có trong mã nguồn và định hướng có thể phát triển trong tương lai, tránh mô tả một tính năng là đã triển khai khi chưa có bằng chứng trong repository.
 
 ## 2. Tổng quan kiến trúc
 
-BrewLite sử dụng mô hình kiến trúc Client–Server, bao gồm giao diện người dùng (Frontend), máy chủ xử lý nghiệp vụ (Backend) và cơ sở dữ liệu.
+BrewLite sử dụng mô hình Client–Server. Frontend được xây dựng bằng Next.js, Backend cung cấp REST API bằng NestJS và dữ liệu được lưu trữ trong PostgreSQL thông qua Prisma ORM.
 
-Dự án được tổ chức theo mô hình Monorepo, trong đó mã nguồn của Frontend, Backend và tài liệu được quản lý trong cùng một repository.
-
-Cấu trúc thư mục mục tiêu của dự án Assignment 2:
+Repository được tổ chức theo mô hình Monorepo. Các thành phần chính gồm:
 
 ```text
 BrewLite_Assignment2/
 ├── apps/
-│   ├── web/                 # Giao diện người dùng Next.js
-│   └── api/                 # Backend API sử dụng NestJS
-├── docs/
-│   └── architecture/
-│       ├── adr/
-│       └── overview.md
-├── tests/
-├── .env.example
-├── docker-compose.yml
+│   ├── web/                 # Frontend Next.js
+│   └── api/                 # Backend NestJS
+├── docs/                    # Tài liệu yêu cầu, thiết kế và kiến trúc
+├── tests/                   # Tài liệu và các thành phần kiểm thử
+├── .github/workflows/       # Quy trình CI/CD
+├── docker-compose.yml       # Cấu hình PostgreSQL, API và Web
 └── README.md
 ```
 
-Kiến trúc hệ thống gồm các lớp chính:
+Các lớp chính:
 
-* **Lớp giao diện (Presentation Layer):** Hiển thị sản phẩm, giỏ hàng và các chức năng đặt hàng cho người dùng.
-* **Lớp nghiệp vụ (Application Layer):** Xử lý yêu cầu, kiểm tra dữ liệu, quản lý đơn hàng và phối hợp quá trình thanh toán.
-* **Lớp dữ liệu (Data Layer):** Sử dụng PostgreSQL để lưu trữ dữ liệu và Prisma để truy cập cơ sở dữ liệu.
-* **Lớp dịch vụ bên ngoài (External Service Layer):** Sử dụng Mock Payment Gateway để mô phỏng quá trình thanh toán.
+- **Presentation Layer:** Frontend Next.js hiển thị giao diện và nhận thao tác của người dùng.
+- **Application Layer:** Backend NestJS tiếp nhận REST API, xác thực, kiểm tra dữ liệu và xử lý nghiệp vụ.
+- **Data Access Layer:** Prisma ORM cung cấp khả năng truy cập dữ liệu và làm việc với PostgreSQL.
+- **Database Layer:** PostgreSQL lưu trữ người dùng, sản phẩm, đơn hàng, thanh toán và dữ liệu liên quan.
 
-Frontend giao tiếp với Backend thông qua HTTP REST API. Backend tiếp nhận yêu cầu, kiểm tra dữ liệu, xử lý nghiệp vụ, truy vấn cơ sở dữ liệu và trả kết quả về Frontend.
+Frontend giao tiếp với Backend qua HTTP REST API. Backend sử dụng Prisma để truy vấn và cập nhật PostgreSQL.
 
 ## 3. Công nghệ sử dụng
 
-| Thành phần                     | Công nghệ                  | Vai trò                                              |
-| ------------------------------ | -------------------------- | ---------------------------------------------------- |
-| Frontend                       | Next.js, React, TypeScript | Xây dựng giao diện người dùng                        |
-| Giao diện và tạo kiểu          | Tailwind CSS               | Thiết kế giao diện đáp ứng nhiều kích thước màn hình |
-| Quản lý trạng thái phía Client | Zustand                    | Quản lý trạng thái giao diện và dữ liệu phía Client  |
-| Quản lý dữ liệu từ API         | TanStack Query             | Quản lý trạng thái truy vấn và dữ liệu từ máy chủ    |
-| Giao tiếp HTTP                 | Axios                      | Gửi yêu cầu từ Frontend đến Backend                  |
-| Backend                        | NestJS, TypeScript         | Xử lý nghiệp vụ và cung cấp REST API                 |
-| Cơ sở dữ liệu                  | PostgreSQL                 | Lưu trữ dữ liệu của hệ thống                         |
-| ORM                            | Prisma                     | Truy cập dữ liệu và quản lý migration                |
-| Xác thực                       | JWT, Passport, bcrypt      | Hỗ trợ xác thực và bảo vệ tài khoản                  |
-| Thanh toán                     | Mock Payment Gateway       | Mô phỏng quá trình thanh toán                        |
-| Môi trường phát triển          | Docker Compose             | Hỗ trợ khởi chạy các dịch vụ cần thiết               |
+| Thành phần | Công nghệ | Vai trò |
+|---|---|---|
+| Frontend framework | Next.js 16, React 19, TypeScript | Xây dựng ứng dụng giao diện người dùng |
+| Giao diện | Tailwind CSS 4 | Tạo kiểu và xây dựng giao diện responsive |
+| Biểu tượng | lucide-react | Cung cấp các biểu tượng giao diện |
+| Quản lý trạng thái Client | Zustand | Quản lý trạng thái phía Client; giỏ hàng sử dụng middleware `persist` để lưu trạng thái |
+| Giao tiếp HTTP | Fetch API (Web API) | Gửi yêu cầu từ Frontend đến Backend |
+| Backend framework | NestJS 12, TypeScript | Xây dựng REST API theo module |
+| Kiểm tra dữ liệu | class-validator, class-transformer, NestJS ValidationPipe | Kiểm tra và chuyển đổi dữ liệu đầu vào |
+| Tài liệu API | Swagger (`@nestjs/swagger`) | Tạo tài liệu API tại đường dẫn `/swagger` |
+| Xác thực | JWT, Passport, bcrypt | Xác thực và bảo vệ các API cần đăng nhập |
+| Cơ sở dữ liệu | PostgreSQL 16 (trong Docker Compose) | Lưu trữ dữ liệu quan hệ |
+| ORM và migration | Prisma 6 | Truy vấn dữ liệu và quản lý migration |
+| Thanh toán giả lập | MockGateway module nội bộ | Mô phỏng kết quả thanh toán |
+| Kiểm soát yêu cầu lặp | Idempotency-Key và ràng buộc unique trong PostgreSQL | Nhận diện khóa thanh toán đã được sử dụng |
+| Môi trường chạy | Docker Compose | Khởi chạy PostgreSQL, API và Web |
 
-Các công nghệ trên được lựa chọn dựa trên dự án Assignment 1 và định hướng phát triển của Assignment 2.
-
-Giao diện được định hướng thiết kế theo phương pháp Mobile-first, ưu tiên trải nghiệm trên thiết bị di động trước khi mở rộng sang máy tính.
-
-Các tính năng PWA sẽ được triển khai nếu thuộc phạm vi yêu cầu và được hỗ trợ trong phiên bản cuối cùng của hệ thống.
+**Lưu ý về thư viện:** Axios và TanStack Query có khai báo trong `apps/web/package.json`, nhưng trong mã nguồn ứng dụng được rà soát không tìm thấy chỗ sử dụng Axios, `useQuery` hoặc `QueryClientProvider`. Vì vậy, tài liệu không mô tả chúng là công cụ đang được sử dụng trong luồng ứng dụng. Các yêu cầu HTTP trong mã nguồn được thực hiện bằng Fetch API.
 
 ## 4. Các thành phần chính
 
 ### 4.1. Frontend
 
-Frontend được xây dựng bằng Next.js, React và TypeScript.
+Frontend nằm trong `apps/web`, sử dụng Next.js, React và TypeScript.
 
-Các nhiệm vụ chính bao gồm:
+Các trách nhiệm chính:
 
-* Hiển thị danh sách sản phẩm và thông tin chi tiết sản phẩm.
-* Cho phép người dùng quản lý giỏ hàng.
-* Thu thập thông tin cần thiết để tạo đơn hàng.
-* Hiển thị trạng thái đơn hàng và kết quả thanh toán.
-* Gửi yêu cầu đến Backend thông qua REST API.
+- Hiển thị danh sách và thông tin sản phẩm.
+- Hỗ trợ người dùng thao tác với giỏ hàng.
+- Gửi yêu cầu đến Backend để thực hiện các chức năng của ứng dụng.
+- Hiển thị thông tin đơn hàng và kết quả thanh toán.
 
-Giao diện cần có khả năng hiển thị phù hợp trên điện thoại, máy tính bảng và máy tính.
+Zustand được sử dụng để quản lý trạng thái Client. Ví dụ, `cartStore.ts` sử dụng `persist` với khóa lưu trữ `brewlite-cart` để duy trì dữ liệu giỏ hàng ở phía trình duyệt.
 
-Zustand được sử dụng để quản lý trạng thái phía Client. TanStack Query hỗ trợ quản lý dữ liệu nhận được từ API, trạng thái tải dữ liệu và lỗi khi gửi yêu cầu.
+Các yêu cầu HTTP trong mã nguồn Frontend được thực hiện bằng Fetch API.
+
+Giao diện sử dụng Tailwind CSS và được thiết kế để hiển thị trên các kích thước màn hình khác nhau. Tuy nhiên, trong repository được rà soát chưa thấy Web App Manifest hoặc Service Worker. Vì vậy, PWA chưa được xác nhận là đã triển khai; đây chỉ có thể được xem là định hướng nếu nhóm tiếp tục phát triển.
 
 ### 4.2. Backend
 
-Backend sử dụng NestJS và TypeScript.
+Backend nằm trong `apps/api`, được xây dựng bằng NestJS và TypeScript. Các module được khai báo trong `apps/api/src/app.module.ts` gồm:
 
-Hệ thống được tổ chức theo các module nghiệp vụ nhằm phân chia trách nhiệm và giúp mã nguồn dễ bảo trì.
+- **PrismaModule:** Cung cấp PrismaService để các module truy cập cơ sở dữ liệu.
+- **ProductsModule:** Xử lý API và nghiệp vụ liên quan đến sản phẩm.
+- **AuthModule:** Xử lý đăng ký, đăng nhập và xác thực.
+- **OrdersModule:** Xử lý tạo, truy vấn, hủy và các thao tác liên quan đến đơn hàng.
+- **PaymentsModule:** Tiếp nhận yêu cầu thanh toán, kiểm tra Idempotency-Key và cập nhật trạng thái thanh toán/đơn hàng.
+- **HealthModule:** Cung cấp endpoint kiểm tra tình trạng API và kết nối cơ sở dữ liệu.
+- **MockGatewayModule:** Mô phỏng kết quả thanh toán thông qua endpoint nội bộ của Backend.
 
-Dựa trên dự án Assignment 1, các module nghiệp vụ chính bao gồm:
-
-* **Authentication:** Xử lý xác thực người dùng và kiểm soát quyền truy cập.
-* **Products:** Quản lý và cung cấp thông tin sản phẩm.
-* **Inventory:** Quản lý các hoạt động liên quan đến tồn kho.
-* **Orders:** Xử lý việc tạo đơn hàng và cập nhật trạng thái đơn hàng.
-* **Payments:** Phối hợp xử lý yêu cầu thanh toán và kết quả thanh toán.
-* **Promotions:** Xử lý chương trình khuyến mãi và giảm giá.
-
-Backend chịu trách nhiệm kiểm tra dữ liệu đầu vào, thực thi các quy tắc nghiệp vụ, phối hợp truy cập cơ sở dữ liệu và trả kết quả phù hợp cho Frontend.
-
-Việc chia module giúp hạn chế sự phụ thuộc không cần thiết giữa các chức năng và thuận tiện hơn khi phát triển, kiểm thử từng phần.
+Không liệt kê Inventory hoặc Promotions là module NestJS độc lập vì `AppModule` hiện không import các module này. Trong Prisma schema có trường `Product.stock` và model `Promotion`, nhưng sự hiện diện của model/field trong schema không đồng nghĩa đã có module nghiệp vụ tương ứng.
 
 ### 4.3. Cơ sở dữ liệu
 
-PostgreSQL được sử dụng làm hệ quản trị cơ sở dữ liệu quan hệ cho BrewLite.
+PostgreSQL được khai báo là datasource trong `apps/api/prisma/schema.prisma`. Prisma được sử dụng làm ORM và Prisma Migrate quản lý thay đổi cấu trúc dữ liệu.
 
-Prisma đóng vai trò là ORM, hỗ trợ Backend truy cập dữ liệu và quản lý các thay đổi của cấu trúc cơ sở dữ liệu thông qua migration.
+Các model chính trong Prisma schema gồm:
 
-Cơ sở dữ liệu lưu trữ các thông tin phục vụ hoạt động của hệ thống, chẳng hạn như sản phẩm, đơn hàng, thông tin thanh toán và các dữ liệu nghiệp vụ liên quan.
+- `User`: thông tin tài khoản người dùng và điểm tích lũy.
+- `Product`: thông tin sản phẩm và số lượng tồn kho (`stock`).
+- `Promotion`: thông tin mã khuyến mãi.
+- `Order`: đơn hàng, người tạo, trạng thái và tổng tiền.
+- `OrderItem`: các dòng sản phẩm trong đơn hàng.
+- `Payment`: thông tin giao dịch, phương thức, trạng thái và `idempotencyKey`.
+- `LoyaltyTransaction`: lịch sử thay đổi điểm tích lũy.
 
-Các thay đổi về cấu trúc cơ sở dữ liệu cần được quản lý bằng các tệp migration có kiểm soát phiên bản, thay vì chỉnh sửa thủ công mà không có ghi nhận.
+Repository có migration khởi tạo tại `apps/api/prisma/migrations/`. Docker Compose khai báo PostgreSQL 16 và ánh xạ cổng máy chủ `5433` tới cổng container `5432`.
 
-Các nghiệp vụ liên quan đến đơn hàng, thanh toán và tồn kho cần được kiểm tra cẩn thận để bảo đảm tính nhất quán của dữ liệu.
+### 4.4. Thanh toán giả lập và Idempotency
 
-### 4.4. Dịch vụ thanh toán giả lập
+Thanh toán được xử lý bởi `PaymentsModule`. `PaymentsService` gửi HTTP POST đến endpoint `/mock-gateway/pay` của MockGateway module đang chạy trong Backend. Đây là cơ chế giả lập nội bộ của ứng dụng, không phải tích hợp với nhà cung cấp thanh toán bên ngoài.
 
-Mock Payment Gateway được sử dụng để mô phỏng quá trình tương tác giữa BrewLite và một nhà cung cấp dịch vụ thanh toán bên ngoài.
+`MockGatewayService` trả về trạng thái `FAILED` khi `simulateFail` là `true`; trong trường hợp còn lại trả về `SUCCESS`.
 
-Quy trình thanh toán dự kiến gồm các bước:
+API tạo thanh toán nhận khóa qua HTTP header `Idempotency-Key`. Backend kiểm tra khóa trong bảng Payment. Trường `Payment.idempotencyKey` được khai báo `@unique` trong Prisma schema. Nếu khóa đã tồn tại và thuộc cùng đơn hàng/người dùng, hệ thống trả lại thông tin thanh toán đã lưu; nếu khóa được dùng cho giao dịch khác, hệ thống trả lỗi xung đột.
 
-1. Frontend gửi yêu cầu tạo đơn hàng hoặc thanh toán đến Backend.
-2. Backend kiểm tra yêu cầu và tạo hoặc truy xuất bản ghi thanh toán tương ứng.
-3. Mock Payment Gateway mô phỏng kết quả thanh toán.
-4. Backend kiểm tra kết quả và cập nhật trạng thái thanh toán, đơn hàng theo quy tắc nghiệp vụ.
-5. Frontend hiển thị kết quả cho người dùng.
+Quá trình tạo thanh toán và cập nhật trạng thái đơn hàng được thực hiện trong Prisma transaction với mức cô lập `Serializable`. Khi thanh toán thành công, Backend kiểm tra và giảm tồn kho sản phẩm trong transaction. Khi thanh toán thất bại, trạng thái đơn hàng được chuyển thành `PAYMENT_FAILED`.
 
-Hệ thống cần có cơ chế Idempotency để hạn chế việc một yêu cầu thanh toán bị xử lý nhiều lần do người dùng nhấn nút nhiều lần hoặc do hệ thống gửi lại yêu cầu khi xảy ra lỗi mạng.
+Cơ chế hiện tại giúp ngăn việc tạo thêm bản ghi Payment với cùng khóa duy nhất. Việc bảo đảm idempotency ở mọi tình huống đồng thời hoặc khi gateway đã xử lý nhưng transaction thất bại vẫn cần được kiểm thử và đánh giá riêng.
 
-Các yêu cầu gọi lại (callback hoặc webhook), nếu được sử dụng, cần được kiểm tra trước khi kết quả được chấp nhận.
-
-## 5. Các quyết định thiết kế quan trọng
+## 5. Các quyết định kiến trúc
 
 ### 5.1. Tổ chức mã nguồn theo Monorepo
 
-Frontend, Backend và tài liệu được quản lý trong cùng một repository.
+Frontend, Backend, tài liệu và các thành phần kiểm thử được quản lý trong cùng repository. Cấu trúc chính phân chia ứng dụng thành `apps/web` và `apps/api`, tài liệu trong `docs` và kiểm thử trong `tests`.
 
-Cách tổ chức này giúp các thành viên dễ dàng tìm kiếm mã nguồn, đối chiếu tài liệu, xem xét thay đổi và phối hợp phát triển.
-
-Cấu trúc mục tiêu của Assignment 2 phân chia ứng dụng thành `apps/web` và `apps/api`, trong khi tài liệu được lưu trong thư mục `docs`.
+Chi tiết được trình bày trong [ADR 001: Tổ chức mã nguồn theo Monorepo](adr/001-monorepo.md).
 
 ### 5.2. Sử dụng PostgreSQL và Prisma
 
-PostgreSQL được lựa chọn vì hệ thống có nhiều thực thể dữ liệu liên quan và cần bảo đảm tính nhất quán trong các nghiệp vụ như đơn hàng, thanh toán và tồn kho.
+PostgreSQL được chọn để lưu trữ dữ liệu quan hệ; Prisma được sử dụng để truy vấn dữ liệu và quản lý migration.
 
-Prisma hỗ trợ truy cập dữ liệu theo cấu trúc rõ ràng và quản lý thay đổi cơ sở dữ liệu thông qua migration.
+Chi tiết được trình bày trong [ADR 002: PostgreSQL và Prisma](adr/002-postgresql-prisma.md).
 
-Sự kết hợp này giúp việc quản lý dữ liệu có hệ thống hơn, đồng thời hỗ trợ theo dõi và kiểm tra các thay đổi về cấu trúc cơ sở dữ liệu.
+### 5.3. Mock Payment Gateway và Idempotency
 
-### 5.3. Chống xử lý thanh toán trùng lặp
+Backend sử dụng module MockGateway nội bộ để mô phỏng kết quả thanh toán. Khóa Idempotency-Key cùng ràng buộc unique trong cơ sở dữ liệu được dùng để nhận diện yêu cầu thanh toán đã được ghi nhận.
 
-Trong quá trình thanh toán, hệ thống có thể nhận được yêu cầu lặp lại do lỗi mạng, thao tác nhiều lần của người dùng hoặc cơ chế thử lại yêu cầu.
+Chi tiết được trình bày trong [ADR 003: Mock Payment Gateway và Idempotency](adr/003-mock-payment-idempotency.md).
 
-Idempotency Key được sử dụng để nhận diện các yêu cầu thanh toán lặp lại. Backend cần bảo đảm việc gửi lại cùng một yêu cầu không tạo ra các giao dịch trùng lặp hoặc thực hiện lặp lại các tác động nghiệp vụ.
-
-Các thay đổi trạng thái đơn hàng và thanh toán phải được kiểm tra để tránh phát sinh trạng thái không hợp lệ.
-
-Chi tiết các quyết định trên được trình bày trong những tài liệu ADR sau:
-
-* [ADR 001: Tổ chức mã nguồn theo Monorepo](adr/001-monorepo.md)
-* [ADR 002: Lựa chọn PostgreSQL và Prisma](adr/002-postgresql-prisma.md)
-* [ADR 003: Thanh toán giả lập và chống xử lý trùng lặp](adr/003-mock-payment-idempotency.md)
-
-## 6. Các vấn đề vận hành
+## 6. Vận hành và cấu hình
 
 ### 6.1. Cấu hình môi trường
 
-Các thông tin cấu hình của ứng dụng cần được quản lý thông qua biến môi trường thay vì ghi trực tiếp trong mã nguồn.
+Backend đọc các biến môi trường như `DATABASE_URL`, `JWT_SECRET` và `PORT`. Docker Compose hiện khai báo cấu hình PostgreSQL, API và Web; API nhận `DATABASE_URL`, `JWT_SECRET` và `PORT` từ cấu hình Compose.
 
-Tệp `.env.example` cần liệt kê các biến môi trường cần thiết nhưng không được chứa mật khẩu hoặc thông tin xác thực thực tế.
+Tệp `.env.example` trong bản repository được rà soát hiện chưa liệt kê các biến cấu hình. Nhóm nên cập nhật tệp này để mô tả các biến cần thiết, đồng thời chỉ sử dụng giá trị mẫu, không đưa mật khẩu hoặc khóa bí mật thực tế vào repository.
 
-Các cấu hình có thể bao gồm:
+### 6.2. Kiểm tra dữ liệu đầu vào
 
-* Thông tin kết nối cơ sở dữ liệu.
-* Cổng chạy Backend và môi trường thực thi.
-* Địa chỉ API của Backend mà Frontend sử dụng.
-* Các cấu hình liên quan đến dịch vụ thanh toán.
-* Khóa bí mật dùng để xác thực webhook, nếu có.
+Trong `apps/api/src/main.ts`, Backend cấu hình `ValidationPipe` toàn cục với `whitelist: true`, `forbidNonWhitelisted: true` và `transform: true`. Việc này hỗ trợ kiểm tra DTO và từ chối các thuộc tính không được khai báo.
 
-Các thông tin nhạy cảm không được đưa lên repository.
+### 6.3. Tài liệu API
 
-### 6.2. Ghi log và xử lý lỗi
+Swagger được cấu hình trong `main.ts` và được phục vụ tại `/swagger`. Tài liệu API được tạo từ metadata của các controller và DTO.
 
-Backend cần ghi nhận các sự kiện quan trọng và lỗi phát sinh trong quá trình xử lý để hỗ trợ việc theo dõi và khắc phục sự cố.
+### 6.4. Health Check
 
-Log có thể bao gồm thông tin về lỗi yêu cầu, quá trình xử lý đơn hàng và các hoạt động thanh toán cần theo dõi.
+`HealthController` cung cấp endpoint `GET /health`. `HealthService` thực hiện truy vấn `SELECT 1` thông qua Prisma để kiểm tra kết nối cơ sở dữ liệu. Khi kiểm tra thành công, API trả trạng thái `ok`; khi cơ sở dữ liệu không khả dụng, API trả lỗi dịch vụ không khả dụng.
 
-Không ghi mật khẩu, access token, khóa bí mật hoặc các dữ liệu nhạy cảm khác vào log.
+### 6.5. Ghi log và xử lý lỗi
 
-API cần trả về mã trạng thái HTTP phù hợp và thông tin lỗi có cấu trúc nhất quán để Frontend có thể xử lý.
+Ứng dụng hiện sử dụng khả năng logging mặc định của NestJS và có thông báo khi Backend khởi động trong `main.ts`. Trong mã nguồn được rà soát chưa thấy cấu hình hệ thống log tập trung hoặc thư viện logging chuyên biệt. Không ghi thông tin nhạy cảm như mật khẩu, JWT hoặc khóa bí mật vào log.
 
-### 6.3. Health Check
+Backend sử dụng các exception của NestJS để trả lỗi HTTP phù hợp cho các tình huống nghiệp vụ và lỗi dịch vụ.
 
-Backend cần cung cấp endpoint kiểm tra tình trạng hoạt động của hệ thống:
+### 6.6. Docker Compose
 
-`GET /health`
+Tệp `docker-compose.yml` khai báo ba dịch vụ:
 
-Endpoint này dùng để kiểm tra Backend có đang hoạt động hay không. Nếu yêu cầu vận hành cần thiết, endpoint có thể kiểm tra thêm tình trạng kết nối đến các dịch vụ quan trọng như cơ sở dữ liệu.
+- `postgres`: PostgreSQL 16, có healthcheck bằng `pg_isready`.
+- `api`: Backend được build từ `apps/api`, phụ thuộc vào trạng thái healthy của PostgreSQL.
+- `web`: Frontend được build từ `apps/web`, cấu hình địa chỉ API công khai cho môi trường Docker.
 
-Endpoint cần được triển khai và kiểm thử trước khi được xác nhận là đã hoạt động.
+Docker Compose hỗ trợ khởi chạy môi trường phát triển tích hợp. Cấu hình triển khai thực tế cần được rà soát riêng trước khi dùng production.
 
-### 6.4. Quản lý migration
-
-Các thay đổi về cấu trúc cơ sở dữ liệu cần được quản lý bằng các tệp Prisma migration.
-
-Migration phải được xem xét và kiểm thử trước khi áp dụng lên môi trường dùng chung hoặc môi trường triển khai thực tế.
-
-Các thao tác có khả năng xóa hoặc làm mất dữ liệu cần được thực hiện thận trọng.
-
-### 6.5. Môi trường phát triển
-
-Docker Compose có thể được sử dụng để khởi chạy PostgreSQL và các dịch vụ cần thiết cho môi trường phát triển.
-
-Frontend và Backend có thể được phát triển, kiểm thử riêng biệt nhưng vẫn giao tiếp thông qua địa chỉ API đã được cấu hình.
-
-## 7. Ưu điểm, hạn chế và đánh đổi kiến trúc
+## 7. Ưu điểm, hạn chế và đánh đổi
 
 ### 7.1. Ưu điểm
 
-* **Tính mô-đun:** Phân chia Frontend và Backend giúp trách nhiệm của từng thành phần rõ ràng hơn.
-* **Khả năng bảo trì:** Các module NestJS giúp tách biệt những nhóm chức năng nghiệp vụ.
-* **Tính nhất quán dữ liệu:** PostgreSQL và giao dịch cơ sở dữ liệu hỗ trợ bảo vệ tính nhất quán trong các nghiệp vụ liên quan.
-* **Quản lý thay đổi:** Prisma migration giúp theo dõi và kiểm soát các thay đổi của cơ sở dữ liệu.
-* **Hỗ trợ cộng tác:** Monorepo giúp các thành viên dễ dàng truy cập mã nguồn và tài liệu của dự án.
-* **Thuận tiện kiểm thử:** Mock Payment Gateway cho phép kiểm thử quy trình thanh toán mà không cần kết nối nhà cung cấp thanh toán thật.
+- **Quản lý tập trung:** Monorepo đặt Frontend, Backend và tài liệu trong cùng repository.
+- **Tách biệt trách nhiệm:** NestJS module hóa các nhóm chức năng Backend.
+- **Dữ liệu quan hệ:** PostgreSQL hỗ trợ quan hệ, ràng buộc và transaction.
+- **Quản lý schema:** Prisma schema và migration giúp theo dõi thay đổi cơ sở dữ liệu.
+- **Dễ kiểm thử thanh toán:** MockGateway mô phỏng kết quả mà không cần kết nối nhà cung cấp thanh toán thật.
+- **Kiểm soát yêu cầu lặp:** Idempotency-Key và ràng buộc unique giúp nhận diện khóa thanh toán đã được lưu.
 
 ### 7.2. Hạn chế
 
-* **Xung đột khi cộng tác:** Nhiều thành viên chỉnh sửa cùng một tệp có thể dẫn đến xung đột khi hợp nhất mã nguồn.
-* **Phụ thuộc vào cấu hình triển khai:** Monorepo không tự động bảo đảm Frontend và Backend có thể triển khai độc lập; cần cấu hình quy trình triển khai phù hợp.
-* **Công việc vận hành:** Việc quản lý migration, biến môi trường và log cần được duy trì thường xuyên.
-* **Giới hạn của thanh toán giả lập:** Mock Payment Gateway không thể mô phỏng đầy đủ độ tin cậy, bảo mật và các tình huống thực tế của nhà cung cấp thanh toán.
-* **Độ phức tạp của Idempotency:** Cần xử lý cẩn thận các yêu cầu gửi lại và các yêu cầu đồng thời để tránh phát sinh giao dịch trùng lặp.
+- **Xung đột khi cộng tác:** Nhiều thành viên chỉnh sửa cùng tệp có thể gây conflict; cần tuân thủ branch và Pull Request.
+- **Mock thanh toán có giới hạn:** MockGateway không mô phỏng đầy đủ các tình huống, bảo mật và đối soát của nhà cung cấp thật.
+- **Idempotency cần kiểm thử thêm:** Cần kiểm thử các tình huống gửi đồng thời và lỗi xảy ra giữa lúc gọi gateway với lúc ghi transaction.
+- **PWA chưa được xác nhận:** Chưa thấy manifest và service worker trong mã nguồn được rà soát.
+- **Cấu hình môi trường cần hoàn thiện:** `.env.example` hiện còn trống trong bản repository này.
 
-### 7.3. Đánh đổi trong thiết kế
+### 7.3. Đánh đổi
 
-Kiến trúc được định hướng ưu tiên sự đơn giản, khả năng bảo trì và khả năng kiểm thử thay vì xây dựng hệ thống microservices có độ phức tạp cao.
+Kiến trúc hiện tại ưu tiên một ứng dụng Backend NestJS được chia module thay vì triển khai nhiều microservice độc lập. Cách tiếp cận này giảm độ phức tạp vận hành và phù hợp với quy mô dự án học phần.
 
-Với phạm vi hiện tại, Backend được tổ chức theo các module nghiệp vụ giúp mã nguồn rõ ràng mà không cần phát sinh thêm chi phí giao tiếp giữa nhiều dịch vụ độc lập.
-
-Mock Payment Gateway phù hợp cho quá trình phát triển và kiểm thử. Tuy nhiên, nếu triển khai hệ thống thực tế, cần tích hợp nhà cung cấp thanh toán phù hợp và bổ sung các biện pháp bảo mật cần thiết.
+MockGateway giúp nhóm phát triển và kiểm thử luồng thanh toán mà không cần phụ thuộc nhà cung cấp bên ngoài, nhưng không thay thế một cổng thanh toán thực tế.
 
 ## 8. Kết luận
 
-Kiến trúc BrewLite được định hướng sử dụng Next.js cho Frontend, NestJS cho Backend, PostgreSQL cho cơ sở dữ liệu, Prisma để quản lý truy cập dữ liệu và Mock Payment Gateway để mô phỏng thanh toán.
+BrewLite Assignment 2 được tổ chức theo mô hình Monorepo, sử dụng Next.js cho Frontend, NestJS cho Backend, PostgreSQL cho lưu trữ dữ liệu và Prisma cho truy cập dữ liệu/migration. Backend được chia thành các module nghiệp vụ, cung cấp REST API, Swagger, ValidationPipe và endpoint health check.
 
-Cấu trúc Monorepo hỗ trợ cộng tác, trong khi các module Backend giúp phân chia trách nhiệm nghiệp vụ.
-
-Việc quản lý cấu hình bằng biến môi trường, ghi log, kiểm tra tình trạng hoạt động, quản lý migration và chống xử lý thanh toán trùng lặp là những yếu tố quan trọng nhằm cải thiện khả năng bảo trì và độ tin cậy của hệ thống.
-
-Tài liệu kiến trúc cần được cập nhật theo quá trình triển khai Assignment 2 để phản ánh chính xác trạng thái thực tế của dự án.
+Thanh toán được mô phỏng bởi MockGateway nội bộ. Idempotency-Key được lưu với ràng buộc unique để nhận diện yêu cầu đã được xử lý. Tài liệu kiến trúc cần tiếp tục được cập nhật khi mã nguồn thay đổi để luôn phản ánh đúng trạng thái triển khai.
