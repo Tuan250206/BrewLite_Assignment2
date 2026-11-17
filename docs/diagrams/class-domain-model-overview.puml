@@ -68,7 +68,7 @@ class OrderItem {
   + Integer qty
   + Decimal lineTotal
   --
-  + calculateLineTotal(basePrice: Decimal, size: OrderSize, toppings: String[], quantity: Integer): Decimal
+  + calculateOrderItemLineTotal(basePrice: Decimal, size: OrderSize, toppings: String[], quantity: Integer): Decimal
 }
 
 class Promotion {
@@ -92,8 +92,7 @@ class Order {
   + findOne(userId: String, orderId: String)
   + retryPayment(userId: String, orderId: String)
   + cancel(userId: String, orderId: String)
-  + calculateTotal(): Decimal
-  + changeStatus(from: OrderStatus, to: OrderStatus)
+  + assertTransition(from: OrderStatus, to: OrderStatus)
 }
 
 class User {

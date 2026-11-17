@@ -23,14 +23,14 @@
 | **FR-07** | US-05 – Thanh toán không tiền mặt | `sequence-checkout.puml`; `use-case-place-and-pay.puml` (UC5, UC10) | `POST /payments`, `GET /payments/orders/:orderId/status`; `POST /mock-gateway/pay` | `PAY-UNIT-06`..`PAY-UNIT-09`; `PAY-INT-01`..`PAY-INT-03`; E2E `checkout-real.spec.ts` |
 | **FR-08** | US-06 – Xem lịch sử đơn | `use-case-overview.puml` (UC6) | `GET /orders/me`, `GET /orders/:id` | `ORD-UNIT-04`, `ORD-UNIT-05`; `ORD-INT-05`; `orders-api.spec.ts` |
 | **FR-09** | US-06 – Hủy đơn hàng | `use-case-overview.puml` (UC8); `order-state.ts` | `PATCH /orders/:id/cancel`, `PATCH /orders/:id/retry-payment` | `ORD-UNIT-06`..`ORD-UNIT-08`; E2E `checkout-auth.spec.ts` |
-| **FR-10** | US-08 – Cập nhật trạng thái đơn | `use-case-overview.puml` (UC9); `order-state.ts` | `order-state.ts` (máy trạng thái `PAID→PREPARING→READY→COMPLETED`) | `order-state.spec.ts` |
+| **FR-10** | US-08 – Cập nhật trạng thái đơn | `use-case-overview.puml` (UC9); `order-state.ts` | `order-state.ts` (máy trạng thái `PAID→PREPARING→READY→COMPLETED`) — **chưa có API/endpoint** | `order-state.spec.ts` |
 | — | US-09 – Khuyến mãi & tích điểm (Future Scope) | `class-domain-model-overview.puml` (Promotion, LoyaltyTransaction) | `schema.prisma` (model `Promotion`, `User.loyaltyPoints`, `LoyaltyTransaction`) | Chưa có test nghiệp vụ |
 
 ## 2. Ma trận truy vết yêu cầu phi chức năng
 
 | Mã yêu cầu | Use-case/User Story | Thiết kế/Sơ đồ | Code/API | Test |
 | --- | --- | --- | --- | --- |
-| **NFR-01** | Hiệu năng | `architecture/overview.md` | `GET /products`; `prisma.service.ts` | Chưa có test đo thời gian phản hồi |
+| **NFR-01** | Hiệu năng | `architecture/overview.md` | `GET /products`; `prisma.service.ts` | `nfr-01-products-latency.integration.spec.ts` (100 req, p95 < 500 ms) |
 | **NFR-02** | Bảo mật | `architecture/overview.md`; `adr/003-mock-payment-idempotency.md` | `auth.service.ts` (bcrypt + JWT); `jwt-auth.guard.ts`; kiểm tra quyền sở hữu đơn | `AUTH-HTTP-08`..`AUTH-HTTP-12`; `ORD-INT-02`, `ORD-INT-05` |
 | **NFR-03** | Tính khả dụng | `deployment-production.puml` | `GET /health` | `health.service.spec.ts` (200 & 503) |
 | **NFR-04** | Khả năng triển khai | `deployment-production.puml` | `docker-compose.yml`, `apps/*/Dockerfile`, `.github/workflows/*.yml`, `README.md` | CI/CD pipeline (Install → Lint → Test → Build → Deploy → smoke) |

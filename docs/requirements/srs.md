@@ -121,7 +121,7 @@ Tài liệu này đặc tả yêu cầu chức năng (FR), yêu cầu phi chức
 
 - **Use Case:** Cập nhật trạng thái đơn hàng.
 - **Mô tả:** Nhân viên quầy cập nhật tiến trình xử lý đơn hàng.
-- **Ưu tiên:** Must.
+- **Ưu tiên:** Should.
 - **Tiêu chí chấp nhận:**
   1. Chỉ nhân viên quầy được phép cập nhật trạng thái xử lý đơn hàng.
   2. Đơn thanh toán thành công có thể chuyển lần lượt qua các trạng thái đang pha chế, sẵn sàng và hoàn thành.
