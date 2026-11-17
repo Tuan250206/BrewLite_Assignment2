@@ -303,12 +303,13 @@ curl https://<api-domain>/health   # mong đợi: {"status":"ok",...}
 | Hạng mục | Đường dẫn |
 | :--- | :--- |
 | Ma trận truy vết | [docs/traceability-matrix.md](docs/traceability-matrix.md) |
-| Release Notes v1.0.0 | [docs/release-notes-v1.0.0.md](docs/release-notes-v1.0.0.md) |
+| Release Notes v1.0.0 | [mục 11 — Release Notes](#11-release-notes-v100) |
 | SRS & yêu cầu | [docs/requirements/srs.md](docs/requirements/srs.md) |
 | Phạm vi & ngữ cảnh | [docs/requirements/context-and-scope.md](docs/requirements/context-and-scope.md) |
 | Kiến trúc & ADR | [docs/architecture/overview.md](docs/architecture/overview.md) |
 | Sơ đồ UML | `docs/diagrams/` |
 | Hướng dẫn test backend | [tests/README.md](tests/README.md) |
+| Sprint Review & Retrospective | [docs/sprint-review-retrospective.md](docs/sprint-review-retrospective.md) |
 
 **URL hệ thống Production:**
 
@@ -326,9 +327,37 @@ Video ghi lại luồng nghiệp vụ chính: chọn món từ thực đơn → 
 
 ---
 
-## 11. Truy vết yêu cầu
+## 11. Release Notes v1.0.0
+
+Bản phát hành đầu tiên của BrewLite, hoàn thiện luồng đặt món end-to-end.
+Chi tiết trên GitHub: [Release v1.0.0](https://github.com/Tuan250206/BrewLite_Assignment2/releases/tag/v1.0.0).
+
+### Tính năng
+
+- **Menu:** xem danh sách và chi tiết đồ uống, chọn size (S/M/L) và topping.
+- **Giỏ hàng:** thêm, sửa số lượng, xóa; lưu trong trình duyệt bằng Zustand persist.
+- **Tài khoản:** đăng ký, đăng nhập bằng JWT, xem hồ sơ cá nhân.
+- **Đơn hàng:** tạo đơn trong một transaction, kiểm tra tồn kho, tổng tiền do máy chủ tính lại.
+- **Thanh toán mô phỏng:** Ví hoặc Thẻ qua `POST /mock-gateway/pay`; chống xử lý trùng bằng `Idempotency-Key`.
+- **Theo dõi đơn:** xem lịch sử và chi tiết trạng thái, hủy đơn, thanh toán lại khi thất bại.
+- **Vận hành:** health check `GET /health`; CI/CD tự động kiểm thử, build image lên GHCR, deploy Render và smoke test.
+
+### Chưa có trong v1.0.0 (future scope)
+
+- **FR-10** – Nhân viên quầy cập nhật trạng thái đơn: máy trạng thái đã có trong `order-state.ts` nhưng chưa có API.
+- **US-09** – Khuyến mãi và tích điểm: đã có model trong Prisma schema, chưa có nghiệp vụ.
+
+### Artifact
+
+- Image API: `ghcr.io/tuan250206/brewlite_assignment2/api:v1.0.0`
+- Image Web: `ghcr.io/tuan250206/brewlite_assignment2/web:v1.0.0`
+
+### Rollback
+
+Trỏ lại image tag cũ trước bản lỗi — xem [mục 9 — Rollback](#9-rollback) hoặc [docs/deployment.md, mục 8](docs/deployment.md#8-rollback).
+
+---
+
+## 12. Truy vết yêu cầu
 
 Toàn bộ ánh xạ giữa mã yêu cầu (`US-01`–`US-09`, `NFR-01`–`NFR-04`) với use-case, sơ đồ thiết kế, API, mã nguồn và bài kiểm thử được ghi tại [docs/traceability-matrix.md](docs/traceability-matrix.md).
-````
-
-Còn thiếu **2 URL production** (ở §10) — bạn gửi mình thay vào. Bạn có muốn mình viết luôn 2 biên bản Sprint Review / Retrospective không?
