@@ -1,39 +1,138 @@
 # Ma trận truy vết (Traceability Matrix) — BrewLite
 
+## Quy ước mã
 
-## Ma trận truy vết yêu cầu chức năng
+| Loại mã | Nguồn | Ghi chú |
+| --- | --- | --- |
+| `FR-01`–`FR-10` | `docs/requirements/srs.md` | Yêu cầu chức năng — dùng làm **Mã yêu cầu** |
+| `NFR-01`–`NFR-04` | `docs/requirements/srs.md` | Yêu cầu phi chức năng cấp hệ thống |
+| `US-01`–`US-09` | Bộ User Story của đề bài | Dùng ở cột **Use-case/User Story** |
+| `UC1`–`UC10` | `docs/diagrams/use-case-overview.puml` | Use case trong sơ đồ |
+| `AUTH-HTTP-*`, `ORD-UNIT-*`, `ORD-INT-*`, `PAY-UNIT-*`, `PAY-INT-*`, `DB-INT-*` | Source test | Giữ nguyên mã như trong test |
 
-| Mã yêu cầu | User Story (mã và mô tả) | Thiết kế sơ đồ | Code / API | Test |
-|---|---|---|---|---|
-| **US-01** | **Xem thực đơn đồ uống.** Là một khách hàng, tôi muốn xem danh sách các món đồ uống trên trang chủ cùng hình ảnh, tên và giá bán, để dễ dàng tìm kiếm và lựa chọn món yêu thích. | `docs/diagrams/use-case-overview.puml`; `docs/diagrams/class-domain-model-overview.puml` | `GET /products`, `GET /products/:id` — `apps/api/src/products/products.controller.ts`; giao diện menu, loading, empty, tồn kho và quick-add — `apps/web/src/app/page.tsx`; dữ liệu mẫu — `apps/api/prisma/seed.ts`. **Chưa thấy trạng thái “Sắp hết hàng”.** | `apps/api/src/products/products.service.spec.ts`; `apps/web/src/lib/product-image.spec.ts`. **Chưa có test riêng** cho quick-add hoặc trạng thái tồn kho trên UI. |
-| **US-02** | **Xem chi tiết và tùy biến đồ uống.** Là một khách hàng, tôi muốn xem thông tin chi tiết và tùy chỉnh đồ uống, để có sản phẩm phù hợp với sở thích cá nhân. | `docs/diagrams/use-case-overview.puml`; `docs/diagrams/class-domain-model-overview.puml` | `GET /products/:id`; `apps/web/src/app/products/[id]/page.tsx`; `apps/web/src/stores/cartStore.ts`; tính giá phía server — `apps/api/src/orders/order-pricing.ts`, `orders.service.ts`. **Cần xác minh giới hạn số lượng theo tồn kho ở giao diện.** | `apps/api/src/orders/order-pricing.spec.ts` (size S/M/L, topping hợp lệ/trùng); `apps/web/src/stores/cartStore.spec.ts` (giá cập nhật theo size/topping). |
-| **US-03** | **Quản lý giỏ hàng.** Là một khách hàng, tôi muốn xem và điều chỉnh các sản phẩm trong giỏ hàng, để kiểm tra số lượng và tổng tiền trước khi thanh toán. | `docs/diagrams/class-domain-model-overview.puml`; `docs/diagrams/activity-end-to-end.puml` | Zustand `persist` lưu giỏ trên trình duyệt — `apps/web/src/stores/cartStore.ts`; giao diện — `apps/web/src/components/cart/CartView.tsx`; tạo đơn yêu cầu JWT — `apps/api/src/orders/orders.controller.ts`. | `apps/web/src/stores/cartStore.spec.ts` (thêm/gộp, tăng/giảm, xóa, tổng tiền/tổng số lượng); `tests/integration/backend.integration.spec.ts` (`ORD-INT-03`, `ORD-INT-05`). |
-| **US-04** | **Đăng ký và đăng nhập tài khoản.** Là một khách hàng, tôi muốn đăng ký và đăng nhập tài khoản, để bảo mật thông tin đơn hàng và sử dụng điểm thưởng. | `docs/diagrams/use-case-overview.puml` | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` — `apps/api/src/auth/`; form đăng ký/đăng nhập — `apps/web/src/components/auth/AuthModal.tsx`. **Chưa có role trong `User` hoặc luồng đăng nhập riêng cho nhân viên.** | `AUTH-HTTP-01`, `AUTH-HTTP-04`, `AUTH-HTTP-05`, `AUTH-HTTP-06`, `AUTH-HTTP-11`, `AUTH-HTTP-12` — `apps/api/src/auth/auth.integration.spec.ts`; `apps/api/src/auth/auth.service.spec.ts`; `apps/web/e2e/checkout-auth.spec.ts`. |
-| **US-05** | **Thanh toán không tiền mặt qua VNPAY.** Là một khách hàng, tôi muốn thanh toán đơn hàng qua cổng thanh toán điện tử, để không cần sử dụng tiền mặt. | `docs/diagrams/sequence-checkout.puml`; `docs/diagrams/activity-end-to-end.puml`; `docs/architecture/adr/003-mock-payment-idempotency.md` | `POST /payments`, `GET /payments/orders/:orderId/status`, `POST /mock-gateway/pay`; giao diện — `CheckoutConfirmModal.tsx`, `OrderSuccessModal.tsx`, `PaymentFailedModal.tsx`. **Code hiện dùng mock Ví/Thẻ; chưa có VNPAY redirect/callback hoặc tự hủy đơn quá hạn.** | `PAY-UNIT-06/07/08/09` — `tests/unit/payments.service.spec.ts`; `PAY-INT-01/02/03` — `tests/integration/backend.integration.spec.ts`; `apps/web/e2e/checkout-real.spec.ts`, `checkout-auth.spec.ts` (không phải kiểm thử VNPAY thật). |
-| **US-06** | **Xác nhận và xem lịch sử đơn hàng.** Là một khách hàng, tôi muốn xem kết quả thanh toán và lịch sử các đơn hàng, để theo dõi trạng thái đơn hàng và điểm thưởng của mình. | `docs/diagrams/sequence-checkout.puml`; `docs/diagrams/class-domain-model-overview.puml`; `docs/diagrams/use-case-overview.puml` | `GET /orders/me`, `GET /orders/:id`, `PATCH /orders/:id/retry-payment`, `PATCH /orders/:id/cancel`; giao diện — `apps/web/src/app/orders/page.tsx`, `OrderSuccessModal.tsx`. Schema có `loyaltyPoints`, nhưng trang lịch sử chưa hiển thị điểm; chưa xác minh tự hủy đơn PENDING quá hạn. | `ORD-UNIT-04/05/06/07/08` — `tests/unit/orders.service.spec.ts`; `ORD-INT-05`, `PAY-INT-02/03` — `tests/integration/backend.integration.spec.ts`; `apps/web/src/lib/orders-api.spec.ts`; `apps/web/e2e/checkout-auth.spec.ts`, `checkout-real.spec.ts`. |
-| **US-07** | **Đảm bảo thanh toán an toàn, không trùng lặp.** Là một khách hàng, tôi muốn yêu cầu thanh toán không bị xử lý nhiều lần khi mạng không ổn định hoặc bấm nút nhiều lần. | `docs/diagrams/sequence-checkout.puml`; `docs/architecture/adr/003-mock-payment-idempotency.md` | Header `Idempotency-Key` — `apps/api/src/payments/payments.controller.ts`; kiểm tra key, replay và xử lý race — `apps/api/src/payments/payments.service.ts`; unique constraint — `apps/api/prisma/schema.prisma`. | `PAY-UNIT-02`, `PAY-UNIT-10` — `tests/unit/payments.service.spec.ts`; `PAY-INT-01/02/03`, `DB-INT-02` — `tests/integration/backend.integration.spec.ts`; `apps/web/src/lib/order-payment-mock.spec.ts`. |
-| **US-08** | **Kiểm soát tồn kho khi nhiều khách đặt cùng lúc.** Là một khách hàng, tôi muốn hệ thống kiểm soát chính xác tồn kho khi nhiều người cùng đặt hàng. | `docs/diagrams/class-domain-model-overview.puml`; `docs/diagrams/activity-end-to-end.puml`; `docs/diagrams/sequence-checkout.puml` | Code quản lý tồn kho **sản phẩm** (`Product.stock`), chưa có định mức nguyên liệu. Tạo đơn kiểm tra tồn; thanh toán thành công trừ tồn trong transaction Serializable — `apps/api/src/orders/orders.service.ts`, `payments.service.ts`. **Chưa có API nhân viên hủy đơn PAID/hoàn tồn kho.** | `ORD-INT-04` — thiếu hàng không ghi dở dang; `PAY-UNIT-06/07/08`; `PAY-INT-04/05` — rollback và chống oversell khi thanh toán đồng thời. |
-| **US-09** | **Tích điểm thưởng và mã giảm giá.** Là một khách hàng thân thiết, tôi muốn sử dụng mã giảm giá và điểm thưởng để giảm giá trị đơn hàng, đồng thời tích lũy điểm sau khi mua hàng. Tiêu chí đã nhận: khách nhập mã khi thanh toán; hệ thống kiểm tra mã tồn tại, đang hoạt động, còn hạn và đơn đạt giá trị tối thiểu. **Phần tiêu chí còn lại chưa được cung cấp.** | `docs/diagrams/class-domain-model-overview.puml` (đối chiếu mô hình Promotion/Loyalty) | Prisma có `Promotion`, `User.loyaltyPoints`, `LoyaltyTransaction` trong `apps/api/prisma/schema.prisma`; **chưa thấy API/service/UI áp dụng mã giảm giá hoặc cộng/trừ điểm.** Tính năng này được ghi trong Future Scope `EX-07` tại `docs/requirements/context-and-scope.md`, nên cần đối chiếu lại với phạm vi US-09 của đề. | **Chưa thấy test nghiệp vụ** áp dụng promotion/tích điểm. `tests/integration/backend.integration.spec.ts` kiểm tra dữ liệu promotion và loyalty transaction chưa được seed. Tiêu chí US-09 còn thiếu nên chưa thể truy vết đầy đủ. |
+## 1. Ma trận truy vết yêu cầu chức năng
 
-## Yêu cầu phi chức năng
+| Mã yêu cầu | Use-case/User Story | Thiết kế/Sơ đồ | Code/API | Test |
+| --- | --- | --- | --- | --- |
+| **FR-01** | US-01 – Xem menu | `use-case-overview.puml` (UC1); `class-domain-model-overview.puml` (Product) | `GET /products`, `GET /products/:id` | `products.service.spec.ts`; `product-image.spec.ts` |
+| **FR-02** | US-02 – Chọn size & topping | `use-case-overview.puml` (UC2); `class-domain-model-overview.puml` (Product, OrderItem) | `GET /products/:id`; `order-pricing.ts` | `order-pricing.spec.ts`; `cartStore.spec.ts` |
+| **FR-03** | US-03 – Quản lý giỏ hàng | `use-case-overview.puml` (UC3); `activity-end-to-end.puml` | `cartStore.ts` (Zustand persist); `CartView.tsx` | `cartStore.spec.ts`; `ORD-INT-03`, `ORD-INT-05` |
+| **FR-04** | US-04 – Đăng ký tài khoản | `use-case-overview.puml` (UC4) | `POST /auth/register` | `AUTH-HTTP-01`..`AUTH-HTTP-04`; `auth.service.spec.ts` |
+| **FR-05** | US-04 – Đăng nhập | `use-case-overview.puml` (UC7) | `POST /auth/login`, `GET /auth/me` | `AUTH-HTTP-05`..`AUTH-HTTP-12`; E2E `checkout-auth.spec.ts` |
+| **FR-06** | US-05 – Đặt đơn hàng | `sequence-checkout.puml`; `activity-end-to-end.puml` | `POST /orders` | `ORD-UNIT-03`; `ORD-INT-04`; `PAY-INT-05` |
+| **FR-07** | US-05 – Thanh toán không tiền mặt | `sequence-checkout.puml`; `use-case-place-and-pay.puml` (UC5, UC10) | `POST /payments`, `GET /payments/orders/:orderId/status`; `POST /mock-gateway/pay` | `PAY-UNIT-06`..`PAY-UNIT-09`; `PAY-INT-01`..`PAY-INT-03`; E2E `checkout-real.spec.ts` |
+| **FR-08** | US-06 – Xem lịch sử đơn | `use-case-overview.puml` (UC6) | `GET /orders/me`, `GET /orders/:id` | `ORD-UNIT-04`, `ORD-UNIT-05`; `ORD-INT-05`; `orders-api.spec.ts` |
+| **FR-09** | US-06 – Hủy đơn hàng | `use-case-overview.puml` (UC8); `order-state.ts` | `PATCH /orders/:id/cancel`, `PATCH /orders/:id/retry-payment` | `ORD-UNIT-06`..`ORD-UNIT-08`; E2E `checkout-auth.spec.ts` |
+| **FR-10** | US-08 – Cập nhật trạng thái đơn | `use-case-overview.puml` (UC9); `order-state.ts` | `order-state.ts` (máy trạng thái `PAID→PREPARING→READY→COMPLETED`) | `order-state.spec.ts` |
+| — | US-09 – Khuyến mãi & tích điểm (Future Scope) | `class-domain-model-overview.puml` (Promotion, LoyaltyTransaction) | `schema.prisma` (model `Promotion`, `User.loyaltyPoints`, `LoyaltyTransaction`) | Chưa có test nghiệp vụ |
 
-| Mã yêu cầu | User Story (mã và mô tả) | Thiết kế sơ đồ | Code / API | Test |
-|---|---|---|---|---|
-| **NFR-01** | **Hiệu năng.** Ít nhất 95% trong 100 yêu cầu lấy danh sách sản phẩm phản hồi dưới 500 ms theo tiêu chí SRS. | `docs/architecture/overview.md` | `GET /products` — `apps/api/src/products/products.service.ts`; Prisma — `apps/api/src/prisma.service.ts`. | **Chưa có test đo hiệu năng** chứng minh tiêu chí 95% dưới 500 ms. |
-| **NFR-02** | **Bảo mật.** Băm mật khẩu, xác thực JWT, giới hạn truy cập đơn hàng theo chủ sở hữu, bảo vệ thông tin bí mật và phân quyền nhân viên. | `docs/architecture/overview.md`; `docs/architecture/adr/003-mock-payment-idempotency.md` | JWT guard, bcrypt, kiểm tra quyền sở hữu — `apps/api/src/auth/`, `orders.service.ts`, `payments.service.ts`. **Chưa có role nhân viên; `.env.example` ở thư mục gốc đang rỗng.** | `apps/api/src/auth/auth.config.spec.ts`; `apps/api/src/auth/auth.integration.spec.ts`; `ORD-INT-05` — khách khác không xem/thao tác đơn. **Chưa có test phân quyền nhân viên.** |
-| **NFR-03** | **Tính khả dụng.** Health endpoint báo thành công khi API/DB hoạt động và phản ánh lỗi khi DB không khả dụng. | `docs/architecture/overview.md` §6.3; `docs/diagrams/deployment-production.puml` | `GET /health` — `apps/api/src/health/health.controller.ts`, `health.service.ts`. | `apps/api/src/health/health.service.spec.ts` — kiểm tra DB hoạt động và lỗi. |
-| **NFR-04** | **Khả năng triển khai.** Sử dụng Next.js, NestJS và PostgreSQL; có hướng dẫn local, env mẫu và Docker Compose. | `docs/diagrams/deployment-production.puml`; `docs/architecture/overview.md` | `apps/web`, `apps/api`, `docker-compose.yml`, Dockerfile từng ứng dụng, `.github/workflows/ci.yml`, `.github/workflows/cd.yml`, `README.md`. **`.env.example` gốc còn rỗng; URL production cần điền/xác minh.** | Health test — `apps/api/src/health/health.service.spec.ts`; CI lint/test/build; CD smoke test `GET /health`. Cần lưu log pipeline thực tế làm minh chứng. |
+## 2. Ma trận truy vết yêu cầu phi chức năng
 
-## Truy vết bổ sung — Database và kiểm thử (Task 5.2)
+| Mã yêu cầu | Use-case/User Story | Thiết kế/Sơ đồ | Code/API | Test |
+| --- | --- | --- | --- | --- |
+| **NFR-01** | Hiệu năng | `architecture/overview.md` | `GET /products`; `prisma.service.ts` | Chưa có test đo thời gian phản hồi |
+| **NFR-02** | Bảo mật | `architecture/overview.md`; `adr/003-mock-payment-idempotency.md` | `auth.service.ts` (bcrypt + JWT); `jwt-auth.guard.ts`; kiểm tra quyền sở hữu đơn | `AUTH-HTTP-08`..`AUTH-HTTP-12`; `ORD-INT-02`, `ORD-INT-05` |
+| **NFR-03** | Tính khả dụng | `deployment-production.puml` | `GET /health` | `health.service.spec.ts` (200 & 503) |
+| **NFR-04** | Khả năng triển khai | `deployment-production.puml` | `docker-compose.yml`, `apps/*/Dockerfile`, `.github/workflows/*.yml`, `README.md` | CI/CD pipeline (Install → Lint → Test → Build → Deploy → smoke) |
 
-| Mã | Nội dung | Thiết kế / Code | Test |
-|---|---|---|---|
-| **DB-01** | Migration có thể chạy lại an toàn và database có thể tạo lại. | `docs/architecture/adr/002-postgresql-prisma.md`; `apps/api/prisma/migrations/20261111000000_init/migration.sql` | `DB-INT-01` — `tests/integration/backend.integration.spec.ts`. |
-| **DB-02** | Ràng buộc email duy nhất, khóa ngoại và idempotency được bảo vệ bởi database. | `docs/diagrams/class-domain-model-overview.puml`; `apps/api/prisma/schema.prisma` | `DB-INT-02` — `tests/integration/backend.integration.spec.ts`. |
-| **DB-03** | Dữ liệu mẫu có thể seed lại. | `apps/api/prisma/seed.ts` | `DB-INT-01` — `tests/integration/backend.integration.spec.ts`. |
+## 3. Giải thích User Story
 
-## Ghi chú về phạm vi và minh chứng
+### US-01 – Xem menu
 
-- Ma trận phản ánh mã nguồn, sơ đồ và test có trong repository tại thời điểm cập nhật.
-- Việc dẫn chiếu một test không đồng nghĩa toàn bộ tiêu chí chấp nhận của User Story đã được kiểm thử; các phần chưa có minh chứng được ghi rõ tại từng dòng.
-- Tiêu chí chấp nhận US-09 trong tài liệu yêu cầu hiện chưa đầy đủ. Cần đối chiếu đề bài chính thức để hoàn tất truy vết; phạm vi khuyến mãi/loyalty cũng cần được làm rõ vì `context-and-scope.md` xếp nội dung này vào Future Scope `EX-07`.
+> Là một **khách hàng**, tôi muốn **xem danh sách đồ uống đang bán kèm hình ảnh và giá**, để tôi **chọn được món muốn uống**.
+
+**Tiêu chí chấp nhận:**
+- Giao diện hiển thị danh sách sản phẩm từ hệ thống khi tải thành công.
+- Mỗi sản phẩm hiển thị tối thiểu tên, hình ảnh và giá bán.
+- Không có sản phẩm thì hiển thị thông báo danh sách trống.
+- Tải thất bại thì hiển thị thông báo lỗi thay vì trang trống.
+
+### US-02 – Chọn size & topping
+
+> Là một **khách hàng**, tôi muốn **chọn size (S/M/L) và thêm topping**, để tôi **tùy biến đồ uống theo sở thích và thấy giá cập nhật**.
+
+**Tiêu chí chấp nhận:**
+- Mở được chi tiết sản phẩm đang tồn tại.
+- Hiển thị tên, giá và các lựa chọn size/topping khả dụng.
+- Giá hiển thị thay đổi đúng theo size và topping đã chọn.
+- Sản phẩm không tồn tại thì hiển thị thông báo phù hợp.
+
+### US-03 – Quản lý giỏ hàng
+
+> Là một **khách hàng**, tôi muốn **thêm, sửa số lượng và xóa sản phẩm trong giỏ**, để tôi **kiểm soát đơn hàng trước khi thanh toán**.
+
+**Tiêu chí chấp nhận:**
+- Thêm được sản phẩm với size, topping và số lượng hợp lệ.
+- Thay đổi được số lượng và xóa được sản phẩm trong giỏ.
+- Tổng tiền được tính lại theo số lượng và tùy chọn đã chọn.
+- Số lượng không hợp lệ (không phải số nguyên dương) bị từ chối.
+- Không thể đặt đơn khi giỏ hàng trống.
+
+### US-04 – Đăng ký & đăng nhập
+
+> Là một **khách hàng**, tôi muốn **đăng ký tài khoản và đăng nhập**, để tôi **đặt hàng, thanh toán và xem lịch sử đơn của mình**.
+
+**Tiêu chí chấp nhận:**
+- Dữ liệu hợp lệ được chấp nhận và tạo tài khoản thành công.
+- Email trùng hoặc dữ liệu sai định dạng bị từ chối, kèm thông báo rõ ràng.
+- Mật khẩu không được lưu dưới dạng văn bản thuần.
+- Đăng nhập hợp lệ thành công và nhận JWT có thời hạn.
+- Thông tin đăng nhập sai bị từ chối và hiển thị thông báo lỗi.
+- Yêu cầu đến API được bảo vệ mà không có JWT hợp lệ bị từ chối.
+
+### US-05 – Thanh toán không tiền mặt
+
+> Là một **khách hàng**, tôi muốn **thanh toán đơn bằng ví điện tử/thẻ**, để tôi **không cần mang tiền mặt**.
+
+**Tiêu chí chấp nhận:**
+- Khi giỏ hàng có ít nhất 1 sản phẩm, nút "Thanh toán" hiển thị tổng tiền.
+- Chọn phương thức (Ví / Thẻ) rồi xác nhận ⇒ tạo đơn ở trạng thái `PAID`.
+- Nếu thanh toán lỗi, đơn ở trạng thái `PAYMENT_FAILED` và giỏ hàng được giữ nguyên.
+- Sau khi thành công, hiển thị mã đơn và màn hình xác nhận.
+- Chỉ sử dụng thanh toán mô phỏng, không thực hiện giao dịch tài chính thật.
+- Gửi lại cùng yêu cầu với cùng khóa idempotency không tạo thêm giao dịch.
+
+### US-06 – Xem lịch sử & hủy đơn
+
+> Là một **khách hàng**, tôi muốn **xem danh sách đơn đã đặt và hủy đơn khi cần**, để tôi **theo dõi tình trạng đơn hàng và hủy nếu không muốn mua nữa**.
+
+**Tiêu chí chấp nhận:**
+- Khách hàng đã đăng nhập xem được danh sách đơn hàng của chính mình.
+- Mỗi đơn hiển thị mã đơn, thời gian đặt, tổng tiền và trạng thái.
+- Không thể truy cập lịch sử hoặc chi tiết đơn của khách hàng khác.
+- Chưa có đơn hàng thì hiển thị thông báo danh sách trống.
+- Khách hàng chỉ hủy được đơn của mình khi đơn chưa thanh toán thành công.
+- Hủy thành công làm trạng thái đơn chuyển thành `CANCELLED`.
+
+### US-07 – Đảm bảo idempotency thanh toán
+
+> Là một **khách hàng**, tôi muốn **gửi lại yêu cầu thanh toán bị gián đoạn mà không bị tính tiền hai lần**, để tôi **an tâm khi mạng không ổn định**.
+
+**Tiêu chí chấp nhận:**
+- Thiếu `Idempotency-Key` bị từ chối.
+- Gửi lại cùng key trả về kết quả giao dịch ban đầu, không tạo thêm `Payment`.
+- Cùng key dùng cho đơn/chủ khác bị từ chối.
+
+### US-08 – Kiểm soát tồn kho & trạng thái xử lý
+
+> Là một **nhân viên quầy**, tôi muốn **hệ thống tự kiểm tra tồn kho và cập nhật trạng thái đơn**, để tôi **không bán quá hàng và khách biết tiến trình đơn**.
+
+**Tiêu chí chấp nhận:**
+- Tạo đơn kiểm tra tồn kho và từ chối nếu không đủ; không tạo đơn lỗi.
+- Đơn `PENDING` chưa trừ tồn; chỉ trừ tồn khi thanh toán thành công, trong transaction.
+- Nhiều khách thanh toán đồng thời không bán vượt tồn; tồn không âm.
+- Đơn `PAID` có thể chuyển lần lượt `PREPARING → READY → COMPLETED`.
+- Chuyển trạng thái không hợp lệ bị từ chối.
+
+> **Lưu ý phạm vi:** MVP quản lý tồn theo **sản phẩm** (không tách size/topping, không có định mức nguyên liệu — giả định `A-06`). API cập nhật trạng thái cho nhân viên (UC9) và hủy đơn `PAID`/hoàn tồn kho **chưa triển khai**; chỉ có máy trạng thái.
+
+### US-09 – Khuyến mãi & tích điểm (Future Scope)
+
+> Là một **khách hàng**, tôi muốn **nhập mã giảm giá và tích điểm thưởng**, để tôi **tiết kiệm và hưởng ưu đãi sau những lần mua**.
+
+**Tiêu chí chấp nhận:**
+- Hệ thống kiểm tra mã tồn tại, đang hoạt động, còn hạn và đơn đạt giá trị tối thiểu.
+- Tích lũy điểm sau khi mua thành công.
+
+> **Lưu ý phạm vi:** Tính năng này thuộc **Future Scope `EX-07`** (theo `docs/requirements/context-and-scope.md`). Hiện chỉ có model trong `schema.prisma`, chưa có API/service/UI.
+
